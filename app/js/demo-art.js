@@ -319,14 +319,25 @@
     });
   }
 
+  var paintToken = { cancel: false };
+
   SBS.DemoArt = {
+    cancelPaint: function cancelPaint() {
+      paintToken.cancel = true;
+    },
     paintBook: function paintBook(book, onProgress, onDone) {
       var spreads = book.spreads || [];
       var i = 0;
+      paintToken.cancel = false;
+      while (i < spreads.length && spreads[i].leftArt) i += 1;
 
       function tick() {
+        if (paintToken.cancel) {
+          if (onDone) onDone(book, "interrupted");
+          return;
+        }
         if (i >= spreads.length) {
-          onDone(book);
+          if (onDone) onDone(book, "complete");
           return;
         }
         var msg = MESSAGES[Math.min(i, MESSAGES.length - 1)];
@@ -334,10 +345,11 @@
         if (onProgress) onProgress(i, spreads.length, msg);
         spreads[i].leftArt = renderSpread(book, spreads[i]);
         i += 1;
+        if (onProgress) onProgress(i, spreads.length, msg);
         window.setTimeout(tick, 20);
       }
 
-      if (onProgress) onProgress(0, spreads.length, MESSAGES[0]);
+      if (onProgress) onProgress(i, spreads.length, MESSAGES[0]);
       window.setTimeout(tick, 40);
     },
     cachePut: function cachePut(key, book) {
