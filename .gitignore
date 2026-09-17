@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/
+
+# Dependencies (not used in Sprint 01)
+node_modules/
+
+# Generated books (keep folder structure via .gitkeep)
+library/catalog/*
+!library/catalog/.gitkeep
+library/intent/*
+!library/intent/.gitkeep
+library/bible/*
+!library/bible/.gitkeep
+library/prompt/*
+!library/prompt/.gitkeep
+library/book/*
+!library/book/.gitkeep
+library/html/*
+!library/html/.gitkeep
+library/pdf/*
+!library/pdf/.gitkeep
+library/spreads/*
+!library/spreads/.gitkeep
+library/*.zip

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoryBook Studio</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+  <div class="app-wrap">
+    <button type="button" class="gear operator-only" id="btn-gear" aria-label="運営者設定">⚙</button>
+    <main class="app">
+      <p class="brand">StoryBook Studio</p>
+      <h1>世界に一つの絵本</h1>
+      <p class="lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
+      <span class="sprint-pill">Sprint 01 ・ スタジオの殻</span>
+
+      <section class="stage" aria-label="ホーム">
+        <div class="spread-hint" aria-hidden="true">
+          <article class="page-card left">
+            <h2>左ページ</h2>
+            <p>插絵が入ります。キャラの色や身長は、裏側でそろえます。</p>
+          </article>
+          <article class="page-card right">
+            <h2>右ページ</h2>
+            <p>文章が入ります。横書きと縦書きは、あとから選べます。</p>
+          </article>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="btn-make">絵本をつくる</button>
+          <button type="button" class="btn btn-ghost" id="btn-omakase">おまかせで一冊</button>
+          <button type="button" class="btn btn-ghost" id="btn-library">書庫をひらく</button>
+        </div>
+
+        <p class="note">
+          <strong>いまできること:</strong> このホームを開くこと。<br>
+          <strong>まだできないこと:</strong> 条件入力、生成、保存、印刷。次のスプリントで順に載せます。
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="dialog" id="soon-dialog" aria-labelledby="soon-title">
+    <div class="dialog-body">
+      <h2 id="soon-title">もうすぐつながります</h2>
+      <p id="soon-message"></p>
+      <button type="button" class="btn btn-primary" id="btn-soon-close">とじる</button>
+    </div>
+  </dialog>
+
+  <script src="js/app.js"></script>
+  <script>
+    SBS.initHome();
+  </script>
+</body>
+</html>
