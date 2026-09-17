@@ -325,6 +325,11 @@
     cancelPaint: function cancelPaint() {
       paintToken.cancel = true;
     },
+    paintOne: function paintOne(book, spreadIndex) {
+      var spreads = (book && book.spreads) || [];
+      if (!spreads[spreadIndex]) return;
+      spreads[spreadIndex].leftArt = renderSpread(book, spreads[spreadIndex]);
+    },
     paintBook: function paintBook(book, onProgress, onDone) {
       var spreads = book.spreads || [];
       var i = 0;
@@ -340,8 +345,9 @@
           if (onDone) onDone(book, "complete");
           return;
         }
+        var left = spreads.length - i;
         var msg = MESSAGES[Math.min(i, MESSAGES.length - 1)];
-        if (i >= 2) msg = "絵をそろえています（" + (i + 1) + " / " + spreads.length + "）";
+        if (i >= 2) msg = "絵をそろえています（あと " + left + " ページ）";
         if (onProgress) onProgress(i, spreads.length, msg);
         spreads[i].leftArt = renderSpread(book, spreads[i]);
         i += 1;

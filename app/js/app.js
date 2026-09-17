@@ -10,6 +10,7 @@
   }
 
   function isStudio() {
+    if (isKiosk()) return false;
     try {
       return /(?:^|[?&])studio=1(?:&|$)/.test(location.search);
     } catch (err) {
@@ -27,7 +28,7 @@
   function showSoon(featureName, extra) {
     var dialog = $("soon-dialog");
     var body = $("soon-message");
-    var text = extra || (featureName + "はまだつながっていません。次のスプリントで載せます。");
+    var text = extra || (featureName + "は、いまはこの画面では使えません。");
     if (!dialog || !body) {
       window.alert(text);
       return;
@@ -109,7 +110,8 @@
     showScreen("generating");
     $("gen-message").textContent = "登場人物の色をそろえています";
     SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), (nextBook.spreads || []).length);
-    SBS.DemoArt.paintBook(nextBook, function (done, total, message) {
+    var painter = (SBS.Gemini && SBS.Gemini.paintBook) ? SBS.Gemini.paintBook : SBS.DemoArt.paintBook;
+    painter(nextBook, function (done, total, message) {
       $("gen-message").textContent = message;
       SBS.LibraryIO.sessionSave(nextBook, "running", done, total);
     }, function (finished, status) {
@@ -284,15 +286,41 @@
       });
     });
     $("btn-gen-cancel").addEventListener("click", function () {
-      SBS.DemoArt.cancelPaint();
+      if (SBS.Gemini) SBS.Gemini.cancelPaint();
+      else SBS.DemoArt.cancelPaint();
     });
+    function persistSettings() {
+      if (!SBS.Gemini) return;
+      var keyEl = $("gemini-key");
+      var modeEl = document.querySelector("input[name=\"gen-mode\"]:checked");
+      if (keyEl) SBS.Gemini.setKey(keyEl.value);
+      SBS.Gemini.setMode(modeEl ? modeEl.value : "auto");
+      refreshGeminiStatus();
+    }
+    function refreshGeminiStatus() {
+      var status = $("gemini-status");
+      var keyEl = $("gemini-key");
+      if (keyEl && SBS.Gemini && !keyEl.value) keyEl.value = SBS.Gemini.getKey();
+      document.querySelectorAll("input[name=\"gen-mode\"]").forEach(function (el) {
+        el.checked = SBS.Gemini && el.value === SBS.Gemini.getMode();
+      });
+      if (status && SBS.Gemini) status.textContent = SBS.Gemini.statusMessage();
+    }
     $("btn-gear").addEventListener("click", function () {
       refreshFolderButton();
+      refreshGeminiStatus();
       openDialog("settings-dialog");
     });
     $("btn-soon-close").addEventListener("click", closeSoon);
     $("btn-settings-close").addEventListener("click", function () {
+      persistSettings();
       closeDialog("settings-dialog");
+    });
+    if ($("gemini-key")) {
+      $("gemini-key").addEventListener("change", persistSettings);
+    }
+    document.querySelectorAll("input[name=\"gen-mode\"]").forEach(function (el) {
+      el.addEventListener("change", persistSettings);
     });
     $("btn-choose-folder").addEventListener("click", function () {
       SBS.LibraryIO.chooseFolder().then(function (handle) {

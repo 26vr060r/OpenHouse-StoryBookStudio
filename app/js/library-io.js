@@ -125,7 +125,7 @@
 
   function bookRecord(book) {
     var id = book.bookId;
-    return {
+    var record = {
       schemaVersion: 1,
       bookId: id,
       stamp: book.stamp,
@@ -150,6 +150,10 @@
         };
       })
     };
+    if (book.characterSheet) {
+      record.paths.characterSheet = id + "_character-sheet.png";
+    }
+    return record;
   }
 
   function pack(book) {
@@ -164,6 +168,12 @@
     files.push({ path: "intent/" + id + ".intent.json", data: prettyJson(book.intent || {}) });
     files.push({ path: "bible/" + id + ".bible.json", data: prettyJson(book.bible || {}) });
     files.push({ path: "book/" + id + "/" + id + ".book.json", data: prettyJson(record) });
+    if (book.characterSheet) {
+      files.push({
+        path: "book/" + id + "/" + id + "_character-sheet.png",
+        data: dataUrlToBytes(book.characterSheet)
+      });
+    }
     (book.spreads || []).forEach(function (s) {
       if (!s.leftArt) return;
       files.push({
@@ -210,6 +220,7 @@
       intent: entry.intent,
       bible: entry.bible,
       prompts: entry.prompts || null,
+      characterSheet: entry.characterSheet || "",
       spreads: spreads
     };
   }
@@ -222,6 +233,7 @@
       bible: book.bible,
       record: packed.record,
       prompts: book.prompts || null,
+      characterSheet: book.characterSheet || "",
       arts: (book.spreads || []).map(function (s) { return s.leftArt || ""; })
     };
   }
