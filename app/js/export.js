@@ -67,9 +67,16 @@
 
   function colophonLines(book) {
     var day = (book.createdAt || "").replace("T", " ").replace(/\+09:00$/, "");
+    var gen = book.generator || "demo";
+    var how = "插絵はアプリのキット、文章はスタジオが組み立てています。";
+    if (gen === "gemini") {
+      how = "插絵と文章の一部は生成AIを使っています。透かしは消していません。";
+    } else if (gen === "hybrid") {
+      how = "插絵の一部は生成AI、そろえられなかったページはアプリのキットです。透かしは消していません。";
+    }
     return [
       "この絵本は StoryBook Studio でつくりました。",
-      "插絵はアプリのキット、文章はスタジオが組み立てています。",
+      how,
       "つくった日: " + (day || "（不明）"),
       "bookId: " + (book.bookId || "")
     ];

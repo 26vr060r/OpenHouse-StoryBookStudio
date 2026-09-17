@@ -15,7 +15,7 @@
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つの絵本</h1>
       <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill" id="sprint-pill">Sprint 07 ・ 印刷</span>
+      <span class="sprint-pill operator-only" id="sprint-pill">Sprint 08 ・ Gemini</span>
 
       <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
@@ -38,8 +38,8 @@
           <button type="button" class="btn btn-primary" id="btn-resume">つづきから</button>
         </p>
         <p class="note">
-          <strong>いまできること:</strong> 絵本をつくり、保存し、A4横で印刷すること。<br>
-          <strong>まだできないこと:</strong> 外部AIによる插絵。
+          <strong>いまできること:</strong> 条件を選んで絵本をつくり、めくり、保存し、印刷すること。<br>
+          待ち時間があるときは「あと○ページ」と出ます。中止すると、途中まで残ります。
         </p>
       </section>
 
@@ -139,7 +139,7 @@
       <section class="stage" id="screen-generating" hidden aria-live="polite" aria-label="作成中">
         <h2 class="step-title">絵本をつくっています</h2>
         <p class="gen-message" id="gen-message">登場人物の色をそろえています</p>
-        <p class="note">色や身長は、全ページで同じになるように裏側でそろえています。</p>
+        <p class="note">色や身長は、全ページで同じになるように裏側でそろえています。絵の枚数が多いときは、少し待つことがあります。中止すると、途中まで残ります。</p>
         <div class="actions wizard-nav">
           <button type="button" class="btn btn-ghost" id="btn-gen-cancel">中止</button>
         </div>
@@ -216,9 +216,29 @@
       <p id="folder-status">保存先フォルダはまだ選んでいません。Chrome または Edge で、http で開いているときに選べます。</p>
       <div class="actions">
         <button type="button" class="btn btn-primary" id="btn-choose-folder">保存先フォルダを選ぶ</button>
+      </div>
+      <label class="block-label">Gemini APIキー（このブラウザだけに保存）
+        <input id="gemini-key" type="password" autocomplete="off" spellcheck="false">
+      </label>
+      <fieldset class="settings-modes">
+        <legend>插絵の作り方</legend>
+        <label class="check-label">
+          <input type="radio" name="gen-mode" value="auto" checked>
+          自動（キーがあれば Gemini、なければデモ）
+        </label>
+        <label class="check-label">
+          <input type="radio" name="gen-mode" value="demo">
+          いつもデモ
+        </label>
+        <label class="check-label">
+          <input type="radio" name="gen-mode" value="gemini">
+          必ず Gemini（失敗したページはデモ）
+        </label>
+      </fieldset>
+      <p class="note" id="gemini-status">キーがなければデモ插絵です。キーはこのブラウザにだけ残します。</p>
+      <div class="actions">
         <button type="button" class="btn btn-ghost" id="btn-settings-close">とじる</button>
       </div>
-      <p class="note">APIキーは次のスプリントです。いまはデモ插絵です。</p>
     </div>
   </dialog>
 
@@ -233,6 +253,7 @@
   <script src="js/library-io.js"></script>
   <script src="js/pdf-write.js"></script>
   <script src="js/export.js"></script>
+  <script src="js/gemini.js"></script>
   <script src="js/viewer.js"></script>
   <script src="js/app.js"></script>
   <script>
