@@ -4,7 +4,9 @@
 
 実ユーザの生成物は Git に入れない。見本を置くときは命名規約どおりの名前にする。
 
-アプリの「プロンプトを保存」は `{bookId}.prompt.zip` を出す。中身は `prompt/{bookId}/` から始まるので、この `library/` 直下へ展開すると `prompt/` に入る。
+アプリの「この絵本を保存」は `{bookId}.zip` を出す。中身は種類別の相対パスなので、この `library/` 直下へ展開すると `catalog/` `intent/` `bible/` `prompt/` `book/` に散らばる。Chrome でフォルダ直書きした場合は、同じパスへ書き、ZIP も `library/{bookId}.zip` に置く。
+
+運営者向けの「プロンプトを保存」は `{bookId}.prompt.zip` で、中身は `prompt/{bookId}/` だけである。
 
 ## 種類別フォルダ
 
