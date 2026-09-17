@@ -114,7 +114,11 @@
         intent: "intent/" + id + ".intent.json",
         bible: "bible/" + id + ".bible.json",
         promptDir: "prompt/" + id + "/",
-        bookDir: "book/" + id + "/"
+        bookDir: "book/" + id + "/",
+        view: "html/" + id + ".view.html",
+        printHtml: "html/" + id + ".print-a4.html",
+        printBooklet: "html/" + id + ".print-booklet.html",
+        spreadsDir: "spreads/" + id + "/"
       }
     };
   }
@@ -168,6 +172,17 @@
       });
     });
     return { catalog: catalog, record: record, files: files };
+  }
+
+  function withExports(book) {
+    var packed = pack(book);
+    if (!SBS.Export || !SBS.Export.buildFiles) return Promise.resolve(packed);
+    return SBS.Export.buildFiles(book).then(function (extra) {
+      packed.files = packed.files.concat(extra || []);
+      return packed;
+    }).catch(function () {
+      return packed;
+    });
   }
 
   function runtimeFromEntry(entry) {
@@ -294,11 +309,12 @@
     pack: pack,
 
     downloadZip: function downloadZip(book) {
-      if (!book || !book.bookId) return false;
-      var packed = pack(book);
-      var bytes = SBS.zipStore(packed.files);
-      SBS.downloadBytes(book.bookId + ".zip", bytes, "application/zip");
-      return true;
+      if (!book || !book.bookId) return Promise.resolve(false);
+      return withExports(book).then(function (packed) {
+        var bytes = SBS.zipStore(packed.files);
+        SBS.downloadBytes(book.bookId + ".zip", bytes, "application/zip");
+        return true;
+      });
     },
 
     saveLocal: function saveLocal(book) {
@@ -347,11 +363,12 @@
         return ensureHandle(handle);
       }).then(function (handle) {
         if (!handle) return { ok: false, reason: "folder" };
-        var packed = pack(book);
-        var zipBytes = SBS.zipStore(packed.files);
-        var files = packed.files.concat([{ path: book.bookId + ".zip", data: zipBytes }]);
-        return writeFiles(handle, files).then(function () {
-          return { ok: true };
+        return withExports(book).then(function (packed) {
+          var zipBytes = SBS.zipStore(packed.files);
+          var files = packed.files.concat([{ path: book.bookId + ".zip", data: zipBytes }]);
+          return writeFiles(handle, files).then(function () {
+            return { ok: true };
+          });
         });
       }).catch(function () {
         return { ok: false, reason: "write" };

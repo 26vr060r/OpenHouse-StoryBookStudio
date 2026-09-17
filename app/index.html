@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>StoryBook Studio</title>
   <link rel="stylesheet" href="css/studio.css">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/print.css">
 </head>
 <body>
   <div class="app-wrap">
@@ -13,7 +15,7 @@
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つの絵本</h1>
       <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill" id="sprint-pill">Sprint 06 ・ 書庫</span>
+      <span class="sprint-pill" id="sprint-pill">Sprint 07 ・ 印刷</span>
 
       <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
@@ -36,8 +38,8 @@
           <button type="button" class="btn btn-primary" id="btn-resume">つづきから</button>
         </p>
         <p class="note">
-          <strong>いまできること:</strong> 絵本をつくり、ZIPや書庫に保存して、あとから開き直すこと。<br>
-          <strong>まだできないこと:</strong> 印刷・PDF、外部AIによる插絵。
+          <strong>いまできること:</strong> 絵本をつくり、保存し、A4横で印刷すること。<br>
+          <strong>まだできないこと:</strong> 外部AIによる插絵。
         </p>
       </section>
 
@@ -155,6 +157,7 @@
           <button type="button" class="btn btn-ghost" id="btn-book-prev">まえ</button>
           <button type="button" class="btn btn-primary" id="btn-book-next">つぎ</button>
           <button type="button" class="btn btn-primary" id="btn-save-zip">この絵本を保存</button>
+          <button type="button" class="btn btn-ghost" id="btn-print">印刷する</button>
           <button type="button" class="btn btn-ghost" id="btn-write-folder" hidden>フォルダに書き出す</button>
           <button type="button" class="btn btn-ghost operator-only" id="btn-prompt-zip">プロンプトを保存</button>
         </div>
@@ -172,6 +175,29 @@
           </details>
         </div>
         <pre class="studio-json" id="book-studio" hidden></pre>
+      </section>
+
+      <section class="stage" id="screen-print" hidden aria-label="印刷">
+        <div class="print-toolbar no-print">
+          <fieldset class="print-kinds">
+            <legend>印刷の形</legend>
+            <label>
+              <input type="radio" name="print-kind" value="spread" checked>
+              見開き（A4横・1枚に左の絵と右の文）
+            </label>
+            <label>
+              <input type="radio" name="print-kind" value="booklet">
+              製本用（A5×24ページ・プリンタの製本／小冊子）
+            </label>
+          </fieldset>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="btn-print-run">印刷する</button>
+            <button type="button" class="btn btn-primary" id="btn-print-pdf">PDFを保存</button>
+            <button type="button" class="btn btn-ghost" id="btn-print-back">絵本へ</button>
+          </div>
+          <p class="print-hint" id="print-hint">見開き1つがA4横1枚です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。奥付（つくった日とbookId）は印刷に入りません。</p>
+        </div>
+        <div id="print-pages"></div>
       </section>
     </main>
   </div>
@@ -205,6 +231,8 @@
   <script src="js/zip-store.js"></script>
   <script src="js/prompt-compiler.js"></script>
   <script src="js/library-io.js"></script>
+  <script src="js/pdf-write.js"></script>
+  <script src="js/export.js"></script>
   <script src="js/viewer.js"></script>
   <script src="js/app.js"></script>
   <script>

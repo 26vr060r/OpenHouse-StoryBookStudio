@@ -1,0 +1,205 @@
+#screen-print {
+  width: min(1100px, 100%);
+}
+
+.print-toolbar {
+  margin-bottom: 16px;
+}
+
+.print-hint {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.print-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 12px;
+}
+
+.print-kinds label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.print-sheet {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 420px;
+  margin: 0 0 24px;
+  background: #fffdf8;
+  border: 1px solid #eadfce;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 297 / 210;
+  break-after: page;
+  page-break-after: always;
+}
+
+.print-page {
+  min-height: 0;
+  padding: 20px 28px;
+}
+
+.print-page.left {
+  padding-right: 36px;
+  border-right: 1px solid #eadfce;
+  background: #efe3d0;
+}
+
+.print-page.right {
+  padding-left: 36px;
+  line-height: 1.9;
+  font-size: 1.15rem;
+}
+
+.print-page.right.tate,
+.print-leaf.tate {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.print-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.print-leaf {
+  margin: 0 0 24px;
+  min-height: 420px;
+  padding: 20px;
+  background: #fffdf8;
+  border: 1px solid #eadfce;
+  aspect-ratio: 148 / 210;
+  max-width: 360px;
+  break-after: page;
+  page-break-after: always;
+}
+
+.print-leaf.art {
+  background: #efe3d0;
+  padding: 12px;
+}
+
+.colophon-line {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+body.print-mode .brand,
+body.print-mode h1,
+body.print-mode .lede,
+body.print-mode .sprint-pill {
+  display: none;
+}
+
+body.print-kind-booklet .print-sheet {
+  display: none;
+}
+
+body.print-kind-spread .print-leaf {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 297mm 210mm;
+    margin: 10mm;
+  }
+
+  body.print-kind-booklet {
+    --print-w: 148mm;
+  }
+
+  @page booklet {
+    size: 148mm 210mm;
+    margin: 8mm;
+  }
+
+  body.print-kind-booklet {
+    page: booklet;
+  }
+
+  body.print-mode {
+    background: #fff;
+  }
+
+  body.print-mode .gear,
+  body.print-mode .brand,
+  body.print-mode h1,
+  body.print-mode .lede,
+  body.print-mode .sprint-pill,
+  body.print-mode .no-print {
+    display: none !important;
+  }
+
+  .colophon-line {
+    display: none !important;
+  }
+
+  body.print-mode .app {
+    padding: 0;
+    display: block;
+    width: auto;
+  }
+
+  body.print-mode .app > :not(#screen-print) {
+    display: none !important;
+  }
+
+  body.print-mode #screen-print {
+    display: block !important;
+    width: auto;
+    max-width: none;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  body.print-kind-spread .print-sheet {
+    display: grid !important;
+    margin: 0;
+    border: 0;
+    width: 277mm;
+    height: 190mm;
+    max-width: none;
+    aspect-ratio: auto;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  body.print-kind-spread .print-page.left {
+    padding: 4mm 10mm 4mm 2mm;
+  }
+
+  body.print-kind-spread .print-page.right {
+    padding: 4mm 2mm 4mm 10mm;
+    height: auto;
+  }
+
+  body.print-kind-spread .print-art {
+    height: 182mm;
+    max-height: 182mm;
+  }
+
+  body.print-kind-booklet .print-leaf {
+    display: block !important;
+    margin: 0;
+    border: 0;
+    width: 132mm;
+    height: 194mm;
+    max-width: none;
+    min-height: 0;
+    aspect-ratio: auto;
+    break-after: page;
+    page-break-after: always;
+  }
+}
