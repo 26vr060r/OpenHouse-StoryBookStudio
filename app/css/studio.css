@@ -214,3 +214,169 @@ button {
   position: relative;
   width: 100%;
 }
+
+.stage[hidden],
+.stage > [hidden],
+.error[hidden],
+.studio-json[hidden] {
+  display: none !important;
+}
+
+.wizard-progress {
+  margin: 0 0 8px;
+  color: var(--cloth);
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+}
+
+.step-title {
+  margin: 0 0 16px;
+  font-size: 1.35rem;
+}
+
+fieldset {
+  border: 1px solid #eadfce;
+  border-radius: 10px;
+  margin: 0 0 16px;
+  padding: 14px 14px 16px;
+}
+
+legend {
+  padding: 0 6px;
+  color: var(--cloth);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: #fffdf8;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--cloth);
+  border-color: var(--cloth);
+  color: var(--cream);
+}
+
+.block-label,
+.character-card label {
+  display: block;
+  margin-top: 12px;
+  color: var(--ink-soft);
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid #d8c7b0;
+  border-radius: 8px;
+  background: #fffdf8;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.check-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 8px 0 16px;
+  line-height: 1.5;
+}
+
+.check-label input {
+  width: auto;
+  margin-top: 4px;
+}
+
+.privacy-note {
+  background: #f8e8d8;
+  border-radius: 8px;
+  padding: 12px 14px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.character-card {
+  border: 1px solid #eadfce;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #fffdf8;
+}
+
+.character-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.field-label {
+  margin: 12px 0 6px;
+  color: var(--ink-soft);
+}
+
+.btn-small {
+  min-width: 0;
+  min-height: 40px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+.wizard-nav {
+  margin-top: 20px;
+}
+
+.error {
+  color: #8a1f24;
+  background: #f8dcd8;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.summary {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.summary div {
+  display: grid;
+  grid-template-columns: 7em 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eadfce;
+}
+
+.summary dt {
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.summary dd {
+  margin: 0;
+}
+
+.studio-json {
+  margin-top: 16px;
+  padding: 12px;
+  background: #2b211c;
+  color: #f4ead8;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 0.8rem;
+  max-height: 240px;
+}

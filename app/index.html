@@ -12,10 +12,10 @@
     <main class="app">
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つの絵本</h1>
-      <p class="lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill">Sprint 01 ・ スタジオの殻</span>
+      <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
+      <span class="sprint-pill" id="sprint-pill">Sprint 02 ・ 入力ウィザード</span>
 
-      <section class="stage" aria-label="ホーム">
+      <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
           <article class="page-card left">
             <h2>左ページ</h2>
@@ -23,20 +23,100 @@
           </article>
           <article class="page-card right">
             <h2>右ページ</h2>
-            <p>文章が入ります。横書きと縦書きは、あとから選べます。</p>
+            <p>文章が入ります。横書きと縦書きは、ここで選べます。</p>
           </article>
         </div>
-
         <div class="actions">
           <button type="button" class="btn btn-primary" id="btn-make">絵本をつくる</button>
           <button type="button" class="btn btn-ghost" id="btn-omakase">おまかせで一冊</button>
           <button type="button" class="btn btn-ghost" id="btn-library">書庫をひらく</button>
         </div>
-
         <p class="note">
-          <strong>いまできること:</strong> このホームを開くこと。<br>
-          <strong>まだできないこと:</strong> 条件入力、生成、保存、印刷。次のスプリントで順に載せます。
+          <strong>いまできること:</strong> 絵本の条件を選んで確認すること。<br>
+          <strong>まだできないこと:</strong> 物語の生成、插絵、保存、印刷。
         </p>
+      </section>
+
+      <section class="stage" id="screen-wizard" hidden aria-label="絵本の条件">
+        <p id="wizard-progress" class="wizard-progress">ステップ 1 / 4</p>
+        <p class="error" id="wizard-error" hidden></p>
+
+        <div id="wizard-step-1">
+          <h2 class="step-title">どんな絵本？</h2>
+          <fieldset>
+            <legend>伝えたいテーマ</legend>
+            <div class="chip-row" id="theme-chips"></div>
+            <label class="block-label">テーマを自分で書く
+              <input id="theme-free" maxlength="200" placeholder="例: はじめてのおるすばん">
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>だれのための絵本</legend>
+            <div class="chip-row" id="audience-chips"></div>
+          </fieldset>
+          <fieldset>
+            <legend>おはなしの型</legend>
+            <div class="chip-row" id="structure-chips"></div>
+          </fieldset>
+        </div>
+
+        <div id="wizard-step-2" hidden>
+          <h2 class="step-title">風合いと組方向</h2>
+          <fieldset>
+            <legend>舞台</legend>
+            <div class="chip-row" id="setting-chips"></div>
+            <label class="block-label">舞台を自分で書く
+              <input id="setting-free" maxlength="200" placeholder="例: 雨の日の図書館">
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>絵の雰囲気</legend>
+            <div class="chip-row" id="mood-chips"></div>
+          </fieldset>
+          <fieldset>
+            <legend>本文の組方向</legend>
+            <div class="chip-row" id="direction-chips"></div>
+          </fieldset>
+          <label class="check-label">
+            <input type="checkbox" id="furigana-input">
+            ふりがなをつける（2〜6歳ははじめからオン）
+          </label>
+        </div>
+
+        <div id="wizard-step-3" hidden>
+          <h2 class="step-title">だれが出てくる？</h2>
+          <p class="privacy-note">実在の子どものフルネームや住所は書かないでください。あとで絵をつくるとき、外部のサービスへ送ることがあります。</p>
+          <div id="character-list"></div>
+          <button type="button" class="btn btn-ghost" id="btn-add-character">登場人物を足す</button>
+        </div>
+
+        <div id="wizard-step-4" hidden>
+          <h2 class="step-title">タイトルと確認</h2>
+          <label class="block-label">タイトル（自動の案を直してよい）
+            <input id="title-input" maxlength="40">
+          </label>
+          <label class="block-label">献辞（任意）
+            <input id="dedication-input" maxlength="80" placeholder="例: はるちゃんへ">
+          </label>
+          <dl class="summary">
+            <div><dt>テーマ</dt><dd id="summary-theme"></dd></div>
+            <div><dt>対象</dt><dd id="summary-audience"></dd></div>
+            <div><dt>おはなしの型</dt><dd id="summary-structure"></dd></div>
+            <div><dt>舞台</dt><dd id="summary-setting"></dd></div>
+            <div><dt>雰囲気</dt><dd id="summary-mood"></dd></div>
+            <div><dt>組方向</dt><dd id="summary-direction"></dd></div>
+            <div><dt>ふりがな</dt><dd id="summary-furigana"></dd></div>
+            <div><dt>タイトル</dt><dd id="summary-title"></dd></div>
+            <div><dt>献辞</dt><dd id="summary-dedication"></dd></div>
+            <div><dt>登場人物</dt><dd id="summary-characters"></dd></div>
+          </dl>
+          <pre class="studio-json" id="studio-json" hidden></pre>
+        </div>
+
+        <div class="actions wizard-nav">
+          <button type="button" class="btn btn-ghost" id="btn-wizard-back">ホームへ</button>
+          <button type="button" class="btn btn-primary" id="btn-wizard-next">つぎへ</button>
+        </div>
       </section>
     </main>
   </div>
@@ -49,9 +129,11 @@
     </div>
   </dialog>
 
+  <script src="js/presets.js"></script>
+  <script src="js/wizard.js"></script>
   <script src="js/app.js"></script>
   <script>
-    SBS.initHome();
+    SBS.init();
   </script>
 </body>
 </html>
