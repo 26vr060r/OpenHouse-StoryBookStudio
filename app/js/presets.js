@@ -101,6 +101,31 @@
     ]
   };
 
+  SBS.intentFromSeed = function intentFromSeed(seed) {
+    seed = seed || {};
+    return {
+      schemaVersion: 1,
+      theme: { preset: seed.themePreset || "", freeText: seed.themeFree || "" },
+      audience: seed.audience || "",
+      structure: seed.structure || "",
+      setting: { preset: seed.settingPreset || "", freeText: seed.settingFree || "" },
+      mood: seed.mood || "",
+      textDirection: seed.textDirection || "yoko",
+      furigana: seed.furigana !== false,
+      title: seed.title || "",
+      dedication: seed.dedication || "",
+      characters: (seed.characters || []).map(function (c) {
+        return {
+          name: c.name || "",
+          role: c.role || "hero",
+          kind: c.kind || "child",
+          personality: (c.personality || []).slice(),
+          traits: c.traits || ""
+        };
+      })
+    };
+  };
+
   SBS.labelOf = function labelOf(list, id) {
     var i;
     for (i = 0; i < list.length; i += 1) {

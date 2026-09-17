@@ -53,19 +53,32 @@
   function showScreen(name) {
     var home = $("screen-home");
     var wizard = $("screen-wizard");
+    var book = $("screen-book");
     var lede = $("page-lede");
     if (home) home.hidden = name !== "home";
     if (wizard) wizard.hidden = name !== "wizard";
+    if (book) book.hidden = name !== "book";
     if (lede) {
-      lede.textContent = name === "wizard"
-        ? "選んだことは、あとから物語と插絵の材料になります。"
-        : "テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。";
+      if (name === "wizard") lede.textContent = "選んだことは、あとから物語と插絵の材料になります。";
+      else if (name === "book") lede.textContent = "左が插絵、右が文章です。いまは文章だけ読めます。";
+      else lede.textContent = "テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。";
     }
   }
 
   function startWizard(seed) {
     showScreen("wizard");
     SBS.Wizard.start(seed);
+  }
+
+  function openBook(intent) {
+    try {
+      var bible = SBS.Bible.fromIntent(intent);
+      var nextBook = SBS.Story.build(intent, bible);
+      showScreen("book");
+      SBS.Viewer.open(nextBook);
+    } catch (err) {
+      showSoon("絵本", "絵本を開けませんでした。ページを再読み込みして、もう一度試してください。");
+    }
   }
 
   SBS.init = function init() {
@@ -75,7 +88,7 @@
       startWizard(null);
     });
     $("btn-omakase").addEventListener("click", function () {
-      startWizard(SBS.OMAKASE);
+      openBook(SBS.intentFromSeed(SBS.OMAKASE));
     });
     $("btn-library").addEventListener("click", function () {
       showSoon("書庫");
@@ -91,12 +104,7 @@
     });
     $("btn-wizard-next").addEventListener("click", function () {
       var intent = SBS.Wizard.next();
-      if (intent) {
-        showSoon(
-          "絵本の生成",
-          "条件はそろいました。物語と插絵は Sprint 03 以降でつながります。"
-        );
-      }
+      if (intent) openBook(intent);
     });
     $("btn-add-character").addEventListener("click", function () {
       SBS.Wizard.addCharacter();
@@ -107,6 +115,10 @@
     $("furigana-input").addEventListener("change", function () {
       SBS.Wizard.markFuriganaTouched();
     });
+    $("btn-book-home").addEventListener("click", function () {
+      showScreen("home");
+    });
+    SBS.Viewer.bind();
   };
 
   global.SBS = SBS;
