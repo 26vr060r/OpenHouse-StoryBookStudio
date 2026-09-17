@@ -1,0 +1,216 @@
+:root {
+  --paper: #f4ead8;
+  --paper-deep: #ead9be;
+  --ink: #3a2a22;
+  --ink-soft: #6b5348;
+  --cloth: #7a2e32;
+  --cloth-dark: #5c2226;
+  --gold: #c4a574;
+  --cream: #fffaf2;
+  --shadow: rgba(58, 42, 34, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at top, #fff6ea 0%, transparent 55%),
+    var(--paper);
+}
+
+body.kiosk .operator-only {
+  display: none;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 48px;
+}
+
+.brand {
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--cloth);
+  margin: 0 0 8px;
+}
+
+h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.lede {
+  margin: 0 0 28px;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+}
+
+.stage {
+  width: min(920px, 100%);
+  background: var(--cream);
+  border: 1px solid var(--gold);
+  border-radius: 4px 16px 4px 16px;
+  box-shadow: 0 18px 40px var(--shadow);
+  padding: clamp(28px, 5vw, 48px);
+}
+
+.spread-hint {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 700px) {
+  .spread-hint {
+    grid-template-columns: 1fr;
+  }
+}
+
+.page-card {
+  min-height: 160px;
+  border-radius: 2px;
+  padding: 20px;
+}
+
+.page-card.left {
+  background: linear-gradient(160deg, #d9c4a8, #c9b08c);
+  color: var(--cream);
+}
+
+.page-card.right {
+  background: #fffdf8;
+  border: 1px solid #eadfce;
+}
+
+.page-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.page-card p {
+  margin: 0;
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn {
+  min-height: 52px;
+  min-width: 180px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.btn-primary {
+  background: var(--cloth);
+  color: var(--cream);
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+  background: var(--cloth-dark);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--cloth);
+  border: 1px solid var(--cloth);
+}
+
+.note {
+  margin-top: 28px;
+  padding: 16px 18px;
+  background: var(--paper-deep);
+  border-radius: 8px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.note strong {
+  color: var(--ink);
+}
+
+.dialog {
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  padding: 0;
+  max-width: 420px;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.dialog::backdrop {
+  background: rgba(58, 42, 34, 0.4);
+}
+
+.dialog-body {
+  padding: 24px;
+}
+
+.dialog h2 {
+  margin: 0 0 12px;
+  font-size: 1.2rem;
+}
+
+.dialog p {
+  margin: 0 0 20px;
+  line-height: 1.7;
+}
+
+.sprint-pill {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--cloth);
+}
+
+.gear {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+}
+
+.app-wrap {
+  position: relative;
+  width: 100%;
+}

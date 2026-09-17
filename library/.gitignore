@@ -1,0 +1,21 @@
+# 実生成の絵本はコミットしない。フォルダだけ残す。
+*
+!.gitignore
+!README.md
+!.gitkeep
+!catalog/
+!intent/
+!bible/
+!prompt/
+!book/
+!html/
+!pdf/
+!spreads/
+!catalog/.gitkeep
+!intent/.gitkeep
+!bible/.gitkeep
+!prompt/.gitkeep
+!book/.gitkeep
+!html/.gitkeep
+!pdf/.gitkeep
+!spreads/.gitkeep
