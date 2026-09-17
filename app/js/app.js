@@ -54,13 +54,16 @@
     var home = $("screen-home");
     var wizard = $("screen-wizard");
     var book = $("screen-book");
+    var gen = $("screen-generating");
     var lede = $("page-lede");
     if (home) home.hidden = name !== "home";
     if (wizard) wizard.hidden = name !== "wizard";
     if (book) book.hidden = name !== "book";
+    if (gen) gen.hidden = name !== "generating";
     if (lede) {
       if (name === "wizard") lede.textContent = "選んだことは、あとから物語と插絵の材料になります。";
-      else if (name === "book") lede.textContent = "左が插絵、右が文章です。いまは文章だけ読めます。";
+      else if (name === "book") lede.textContent = "左が插絵、右が文章です。キャラの見た目は全ページでそろえています。";
+      else if (name === "generating") lede.textContent = "いま、絵本を組み立てています。";
       else lede.textContent = "テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。";
     }
   }
@@ -71,14 +74,24 @@
   }
 
   function openBook(intent) {
-    try {
-      var bible = SBS.Bible.fromIntent(intent);
-      var nextBook = SBS.Story.build(intent, bible);
-      showScreen("book");
-      SBS.Viewer.open(nextBook);
-    } catch (err) {
-      showSoon("絵本", "絵本を開けませんでした。ページを再読み込みして、もう一度試してください。");
-    }
+    showScreen("generating");
+    $("gen-message").textContent = "登場人物の色をそろえています";
+    window.setTimeout(function () {
+      try {
+        var bible = SBS.Bible.fromIntent(intent);
+        var nextBook = SBS.Story.build(intent, bible);
+        SBS.DemoArt.paintBook(nextBook, function (done, total, message) {
+          $("gen-message").textContent = message;
+        }, function (finished) {
+          SBS.DemoArt.cachePut(finished.title, finished);
+          showScreen("book");
+          SBS.Viewer.open(finished);
+        });
+      } catch (err) {
+        showScreen("home");
+        showSoon("絵本", "絵本を開けませんでした。ページを再読み込みして、もう一度試してください。");
+      }
+    }, 60);
   }
 
   SBS.init = function init() {

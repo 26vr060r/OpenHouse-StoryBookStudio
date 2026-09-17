@@ -35,6 +35,36 @@
     return Math.abs(h) % modulo;
   }
 
+  var COLOR_WORDS = [
+    { keys: ["赤", "あか"], hex: "#c44536" },
+    { keys: ["青", "あお"], hex: "#3d6b8a" },
+    { keys: ["緑", "みどり"], hex: "#6b8f4e" },
+    { keys: ["黄", "きいろ"], hex: "#e0b83a" },
+    { keys: ["白", "しろ"], hex: "#f4ead8" },
+    { keys: ["黒", "くろ"], hex: "#2b211c" },
+    { keys: ["ピンク"], hex: "#e8899a" },
+    { keys: ["オレンジ"], hex: "#e07a3d" }
+  ];
+
+  function parseTraits(traits) {
+    var text = String(traits || "");
+    var color = "";
+    var i;
+    var j;
+    for (i = 0; i < COLOR_WORDS.length; i += 1) {
+      for (j = 0; j < COLOR_WORDS[i].keys.length; j += 1) {
+        if (text.indexOf(COLOR_WORDS[i].keys[j]) !== -1) {
+          color = COLOR_WORDS[i].hex;
+        }
+      }
+    }
+    return {
+      color: color,
+      scarf: /マフラー|スカーフ/.test(text),
+      glasses: /眼鏡|めがね|メガネ/.test(text)
+    };
+  }
+
   function characterId(index) {
     return "char-" + String.fromCharCode(97 + index);
   }
@@ -43,16 +73,31 @@
     fromIntent: function fromIntent(intent) {
       var characters = (intent.characters || []).map(function (ch, index) {
         var body = KIND_BODY[ch.kind] || KIND_BODY.child;
+        var parsed = parseTraits(ch.traits);
         var palette = PALETTES[hashIndex(ch.name + ch.kind, PALETTES.length)];
+        palette = {
+          hair: palette.hair,
+          skin: palette.skin,
+          eyes: palette.eyes,
+          clothesPrimary: parsed.color || palette.clothesPrimary,
+          clothesAccent: palette.clothesAccent,
+          scarf: parsed.scarf ? (parsed.color || "#c44536") : ""
+        };
+        if (ch.kind === "animal") {
+          palette.hair = "#6b4a28";
+          palette.skin = "#d4b07a";
+        }
         var keep = [];
         if (ch.traits) keep.push(ch.traits.slice(0, 80));
         if (ch.kind === "animal") keep.push("動物としての輪郭を保つ");
+        if (parsed.scarf) keep.push("マフラーを常に描く");
         return {
           id: characterId(index),
           displayName: ch.name,
           role: ch.role,
           kind: ch.kind,
           palette: palette,
+          accessories: { scarf: parsed.scarf, glasses: parsed.glasses },
           body: {
             headToBody: body.headToBody,
             heightUnits: ch.role === "hero" ? 1 : body.heightUnits,

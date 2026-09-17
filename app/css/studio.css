@@ -434,6 +434,25 @@ textarea {
   text-align: center;
 }
 
+.spread-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  min-height: 380px;
+}
+
+.left-page {
+  background: #d9c4a8;
+  padding: 0;
+  overflow: hidden;
+}
+
+.gen-message {
+  font-size: 1.2rem;
+  line-height: 1.8;
+}
+
 .right-page {
   line-height: 1.9;
   font-size: 1.15rem;

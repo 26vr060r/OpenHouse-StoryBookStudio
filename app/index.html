@@ -13,7 +13,7 @@
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つの絵本</h1>
       <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill" id="sprint-pill">Sprint 03 ・ 物語と見開き</span>
+      <span class="sprint-pill" id="sprint-pill">Sprint 04 ・ デモ插絵</span>
 
       <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
@@ -32,8 +32,8 @@
           <button type="button" class="btn btn-ghost" id="btn-library">書庫をひらく</button>
         </div>
         <p class="note">
-          <strong>いまできること:</strong> 条件を選んで、見開きの文章絵本をめくること。<br>
-          <strong>まだできないこと:</strong> 插絵、保存、印刷。
+          <strong>いまできること:</strong> 条件を選んで、插絵つきの見開き絵本をめくること。<br>
+          <strong>まだできないこと:</strong> 保存、印刷、外部AIによる插絵。
         </p>
       </section>
 
@@ -119,6 +119,12 @@
         </div>
       </section>
 
+      <section class="stage" id="screen-generating" hidden aria-live="polite" aria-label="作成中">
+        <h2 class="step-title">絵本をつくっています</h2>
+        <p class="gen-message" id="gen-message">登場人物の色をそろえています</p>
+        <p class="note">色や身長は、全ページで同じになるように裏側でそろえています。</p>
+      </section>
+
       <section class="stage book-stage" id="screen-book" hidden aria-label="絵本">
         <p class="book-title-bar" id="book-title-bar"></p>
         <p class="wizard-progress" id="book-page-label">見開き 1 / 12</p>
@@ -148,6 +154,7 @@
   <script src="js/wizard.js"></script>
   <script src="js/bible.js"></script>
   <script src="js/story.js"></script>
+  <script src="js/demo-art.js"></script>
   <script src="js/viewer.js"></script>
   <script src="js/app.js"></script>
   <script>
