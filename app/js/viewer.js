@@ -64,6 +64,14 @@
       SBS.Story.renderParagraph(p, tokens, names, book.furigana);
       if (p.textContent) right.appendChild(p);
     });
+    if (spread.role === "coda" && SBS.Export && SBS.Export.colophonLines) {
+      SBS.Export.colophonLines(book).forEach(function (line) {
+        var note = document.createElement("p");
+        note.className = "colophon-line";
+        note.textContent = line;
+        right.appendChild(note);
+      });
+    }
 
     if (isPortrait()) {
       left.hidden = side !== "left";

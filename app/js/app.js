@@ -70,17 +70,24 @@
     var book = $("screen-book");
     var gen = $("screen-generating");
     var library = $("screen-library");
+    var print = $("screen-print");
     var lede = $("page-lede");
     if (home) home.hidden = name !== "home";
     if (wizard) wizard.hidden = name !== "wizard";
     if (book) book.hidden = name !== "book";
     if (gen) gen.hidden = name !== "generating";
     if (library) library.hidden = name !== "library";
+    if (print) print.hidden = name !== "print";
+    document.body.classList.toggle("print-mode", name === "print");
+    if (name !== "print") {
+      document.body.classList.remove("print-kind-spread", "print-kind-booklet");
+    }
     if (lede) {
       if (name === "wizard") lede.textContent = "選んだことは、あとから物語と插絵の材料になります。";
       else if (name === "book") lede.textContent = "左が插絵、右が文章です。キャラの見た目は全ページでそろえています。";
       else if (name === "generating") lede.textContent = "いま、絵本を組み立てています。";
       else if (name === "library") lede.textContent = "保存した絵本を、ここから開き直せます。";
+      else if (name === "print") lede.textContent = "A4横の見開きで印刷します。";
       else lede.textContent = "テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。";
     }
   }
@@ -322,9 +329,9 @@
         return;
       }
       SBS.LibraryIO.saveLocal(current).then(function () {
-        if (!SBS.LibraryIO.downloadZip(current)) {
-          showSoon("保存", "ZIPを作れませんでした。");
-        }
+        return SBS.LibraryIO.downloadZip(current);
+      }).then(function (ok) {
+        if (!ok) showSoon("保存", "ZIPを作れませんでした。");
       });
     });
     $("btn-write-folder").addEventListener("click", function () {
@@ -336,6 +343,56 @@
         if (!result || !result.ok) {
           showSoon("フォルダ", "フォルダに書き出せませんでした。歯車から library フォルダを選んでください。");
         }
+      });
+    });
+    $("btn-print").addEventListener("click", function () {
+      var current = SBS.Viewer.current();
+      if (!current || !SBS.Export) {
+        showSoon("印刷", "先に絵本をつくってから印刷してください。");
+        return;
+      }
+      showScreen("print");
+      applyPrintKind();
+    });
+    function printKind() {
+      var el = document.querySelector("input[name=\"print-kind\"]:checked");
+      return el && el.value === "booklet" ? "booklet" : "spread";
+    }
+    function applyPrintKind() {
+      var kind = printKind();
+      var book = SBS.Viewer.current();
+      var hint = $("print-hint");
+      document.body.classList.toggle("print-kind-booklet", kind === "booklet");
+      document.body.classList.toggle("print-kind-spread", kind !== "booklet");
+      if (book) SBS.Export.renderPrint($("print-pages"), book, kind);
+      if (!hint) return;
+      if (kind === "booklet") {
+        hint.textContent = "本文24ページ（A5縦）です。プリンタの「製本」または「小冊子」で用紙A4・両面にすると、折って一冊になります。PDFは「PDFを保存」を使うと用紙サイズがA5縦で固定されます。奥付は印刷に入りません。";
+      } else {
+        hint.textContent = "見開き1つがA4横1枚です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。奥付は印刷に入りません。";
+      }
+    }
+    document.querySelectorAll("input[name=\"print-kind\"]").forEach(function (el) {
+      el.addEventListener("change", applyPrintKind);
+    });
+    $("btn-print-back").addEventListener("click", function () {
+      showScreen("book");
+    });
+    $("btn-print-run").addEventListener("click", function () {
+      applyPrintKind();
+      window.print();
+    });
+    $("btn-print-pdf").addEventListener("click", function () {
+      var current = SBS.Viewer.current();
+      var btn = $("btn-print-pdf");
+      if (!current || !SBS.Export || !SBS.Export.buildPdf) return;
+      btn.disabled = true;
+      SBS.Export.buildPdf(current, printKind()).then(function (file) {
+        SBS.downloadBytes(file.filename, file.bytes, "application/pdf");
+        btn.disabled = false;
+      }).catch(function () {
+        btn.disabled = false;
+        showSoon("PDF", "PDFを作れませんでした。もう一度試してください。");
       });
     });
     $("btn-prompt-zip").addEventListener("click", function () {

@@ -21,7 +21,7 @@ body {
 }
 
 body {
-  font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
   color: var(--ink);
   background:
     radial-gradient(ellipse at top, #fff6ea 0%, transparent 55%),
@@ -122,6 +122,10 @@ h1 {
 button {
   font-family: inherit;
   cursor: pointer;
+}
+
+.btn, .chip, .gear {
+  font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
 }
 
 .btn {

@@ -4,7 +4,9 @@
 
 実ユーザの生成物は Git に入れない。見本を置くときは命名規約どおりの名前にする。
 
-アプリの「この絵本を保存」は `{bookId}.zip` を出す。中身は種類別の相対パスなので、この `library/` 直下へ展開すると `catalog/` `intent/` `bible/` `prompt/` `book/` に散らばる。Chrome でフォルダ直書きした場合は、同じパスへ書き、ZIP も `library/{bookId}.zip` に置く。
+アプリの「この絵本を保存」は `{bookId}.zip` を出す。中身は種類別の相対パスなので、この `library/` 直下へ展開すると `catalog/` `intent/` `bible/` `prompt/` `book/` `html/` `spreads/` に散らばる（http のときは印刷用 Noto フォントも `fonts/` に入る）。Chrome でフォルダ直書きした場合は、同じパスへ書き、ZIP も `library/{bookId}.zip` に置く。
+
+PDF は印刷画面の「PDFを保存」で作ります。見開きは `{bookId}.print-a4.pdf`（A4横）、製本用は `{bookId}.booklet.pdf`（A5縦×24ページ）。ブラウザの「PDFに保存」は向きが縦に固定されることがあるため使いません。
 
 運営者向けの「プロンプトを保存」は `{bookId}.prompt.zip` で、中身は `prompt/{bookId}/` だけである。
 
