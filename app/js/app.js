@@ -80,6 +80,10 @@
       try {
         var bible = SBS.Bible.fromIntent(intent);
         var nextBook = SBS.Story.build(intent, bible);
+        if (!SBS.PromptTemplates || !SBS.PromptCompiler) {
+          throw new Error("prompt compiler missing");
+        }
+        SBS.PromptCompiler.compile(intent, bible, nextBook);
         SBS.DemoArt.paintBook(nextBook, function (done, total, message) {
           $("gen-message").textContent = message;
         }, function (finished) {
@@ -130,6 +134,12 @@
     });
     $("btn-book-home").addEventListener("click", function () {
       showScreen("home");
+    });
+    $("btn-prompt-zip").addEventListener("click", function () {
+      var current = SBS.Viewer.current();
+      if (!current || !SBS.PromptCompiler.downloadZip(current)) {
+        showSoon("プロンプト", "先に絵本をつくってから保存してください。");
+      }
     });
     SBS.Viewer.bind();
   };

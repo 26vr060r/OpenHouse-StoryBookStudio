@@ -218,7 +218,8 @@ button {
 .stage[hidden],
 .stage > [hidden],
 .error[hidden],
-.studio-json[hidden] {
+.studio-json[hidden],
+.studio-panel[hidden] {
   display: none !important;
 }
 
@@ -379,6 +380,38 @@ textarea {
   overflow: auto;
   font-size: 0.8rem;
   max-height: 240px;
+}
+
+.studio-panel {
+  margin-top: 16px;
+  padding: 14px 16px 18px;
+  border: 1px dashed var(--gold);
+  border-radius: 10px;
+  background: #fffdf8;
+}
+
+.studio-id {
+  margin: 0 0 8px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--cloth);
+}
+
+.studio-panel textarea {
+  min-height: 8em;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.studio-panel details {
+  margin-top: 12px;
+}
+
+.studio-panel summary {
+  cursor: pointer;
+  color: var(--cloth);
 }
 
 .book-stage {

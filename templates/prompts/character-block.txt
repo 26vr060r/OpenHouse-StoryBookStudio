@@ -1,0 +1,5 @@
+Character {{CHAR_ID}} "{{DISPLAY_NAME}}" (role: {{ROLE}}, kind: {{KIND}}):
+- palette: hair {{HAIR}}, skin {{SKIN}}, eyes {{EYES}}, clothes {{CLOTHES}}, accent {{ACCENT}}{{EXTRA_PALETTE}}
+- body: head-to-body {{HEAD_TO_BODY}}, heightUnits {{HEIGHT_UNITS}} (hero is 1.0), build {{BUILD}}
+- must keep: {{MUST_KEEP}}
+- must never: {{MUST_NEVER}}
