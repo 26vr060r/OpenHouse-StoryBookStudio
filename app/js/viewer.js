@@ -44,18 +44,18 @@
     names.friend = names.friend || "";
 
     left.innerHTML = "";
-    var art = document.createElement("div");
-    art.className = "art-placeholder";
-    art.appendChild(document.createTextNode("插絵 " + (spread.n < 10 ? "0" : "") + spread.n));
-    var hero = bible.characters && bible.characters[0];
-    if (hero && hero.palette) {
-      art.style.background = hero.palette.clothesPrimary;
-      art.style.color = "#fffaf2";
+    var art = document.createElement("img");
+    art.className = "spread-art";
+    art.alt = "";
+    if (spread.leftArt) {
+      art.src = spread.leftArt;
+      left.appendChild(art);
+    } else {
+      var fallback = document.createElement("div");
+      fallback.className = "art-placeholder";
+      fallback.appendChild(document.createTextNode("插絵 " + (spread.n < 10 ? "0" : "") + spread.n));
+      left.appendChild(fallback);
     }
-    var scene = document.createElement("p");
-    scene.appendChild(document.createTextNode("（Sprint 04 で絵が入ります）"));
-    left.appendChild(art);
-    left.appendChild(scene);
 
     right.innerHTML = "";
     right.className = "book-page right-page " + (book.textDirection === "tate" ? "tate" : "yoko");
