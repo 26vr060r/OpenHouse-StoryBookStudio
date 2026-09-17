@@ -1,0 +1,7 @@
+Illustration style lock (use on every page, do not vary):
+Medium: {{MEDIUM}}
+Palette temperature: {{PALETTE_TEMP}}
+Line weight: {{LINE_WEIGHT}}
+Lighting: {{LIGHTING}}
+Picture-book illustration, consistent character design, no photorealism.
+Do not put letters, titles, speech bubbles, captions, or watermarks in the image.

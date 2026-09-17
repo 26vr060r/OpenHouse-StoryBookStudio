@@ -205,6 +205,20 @@
         }
         host.appendChild(document.createTextNode(tok.t || ""));
       });
+    },
+    plainText: function plainText(paragraphs, names) {
+      var lines = [];
+      (paragraphs || []).forEach(function (tokens) {
+        var s = "";
+        (tokens || []).forEach(function (tok) {
+          if (!tok) return;
+          if (tok.n) s += (names && names[tok.n]) || "";
+          else if (tok.k) s += tok.k;
+          else s += tok.t || "";
+        });
+        if (s) lines.push(s);
+      });
+      return lines.join("\n");
     }
   };
 

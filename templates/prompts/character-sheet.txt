@@ -1,0 +1,16 @@
+{{IMAGE_SYSTEM}}
+
+{{STYLE_LOCK}}
+
+{{CHARACTER_LOCK}}
+
+{{WORLD_LOCK}}
+
+Create ONE character reference sheet:
+- paper or plain studio background
+- each character standing, full body, facing forward, feet on the ground line
+- optional extra view: three-quarter, same colors
+- no labels, no arrows, no text in the image
+- accessories from the lock must be clearly visible
+
+{{NEGATIVE}}

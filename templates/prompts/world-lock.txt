@@ -1,0 +1,6 @@
+World lock:
+Setting: {{SETTING_LABEL}} (id: {{SETTING_ID}})
+Ground line: {{GROUND_LINE}} of frame height from the top. Every character stands on this ground.
+pixelsPerUnit: {{PIXELS_PER_UNIT}} (hero heightUnits 1.0).
+Recurring props: {{RECURRING_PROPS}}
+Do not float characters or change the horizon.

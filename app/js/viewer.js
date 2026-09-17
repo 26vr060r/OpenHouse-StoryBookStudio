@@ -79,13 +79,38 @@
     $("btn-book-next").disabled = index >= pageCount() - 1;
 
     var studio = $("book-studio");
-    if (studio) {
-      if (SBS.isStudio && SBS.isStudio()) {
+    var panel = $("studio-prompts");
+    var pagePrompt = null;
+    if (book.prompts && book.prompts.pages) {
+      pagePrompt = book.prompts.pages[spread.n - 1];
+    }
+    var studioOn = SBS.isStudio && SBS.isStudio() && !(SBS.isKiosk && SBS.isKiosk());
+    if (studioOn) {
+      if (studio) {
         studio.hidden = false;
-        studio.textContent = JSON.stringify({ bible: book.bible, spread: spread.scene }, null, 2);
-      } else {
-        studio.hidden = true;
+        studio.textContent = JSON.stringify({
+          bookId: book.bookId || "",
+          bible: book.bible,
+          spread: spread.scene
+        }, null, 2);
       }
+      if (panel) {
+        panel.hidden = false;
+        if ($("studio-bookid")) $("studio-bookid").textContent = "bookId: " + (book.bookId || "");
+        if ($("studio-image-prompt")) $("studio-image-prompt").value = pagePrompt ? pagePrompt.image : "";
+        if ($("studio-text-prompt")) $("studio-text-prompt").value = pagePrompt ? pagePrompt.text : "";
+        if ($("studio-locks")) {
+          $("studio-locks").textContent = [
+            book.prompts && book.prompts.styleLock,
+            book.prompts && book.prompts.characterLock,
+            book.prompts && book.prompts.worldLock,
+            book.prompts && book.prompts.negative
+          ].filter(Boolean).join("\n\n");
+        }
+      }
+    } else {
+      if (studio) studio.hidden = true;
+      if (panel) panel.hidden = true;
     }
   }
 
@@ -121,6 +146,9 @@
       index = 0;
       $("book-title-bar").textContent = book.title;
       renderSpread();
+    },
+    current: function current() {
+      return book;
     },
     bind: function bind() {
       $("btn-book-prev").addEventListener("click", function () { go(-1); });

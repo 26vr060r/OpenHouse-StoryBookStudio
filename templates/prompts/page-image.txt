@@ -1,0 +1,19 @@
+{{IMAGE_SYSTEM}}
+
+{{STYLE_LOCK}}
+
+{{CHARACTER_LOCK}}
+
+{{WORLD_LOCK}}
+
+This spread only (p{{PAGE}} / 12, scene {{SCENE}}, role {{ROLE}}):
+{{SCENE_DIRECTION}}
+Characters in frame: {{WHO}}
+Composition: {{COMPOSITION}}
+
+Technical:
+- portrait 3:4 (or 4:5), high resolution, left page of a picture book
+- no text in the image
+- follow the character reference sheet and the character lock verbatim
+
+{{NEGATIVE}}

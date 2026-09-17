@@ -13,7 +13,7 @@
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つの絵本</h1>
       <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill" id="sprint-pill">Sprint 04 ・ デモ插絵</span>
+      <span class="sprint-pill" id="sprint-pill">Sprint 05 ・ プロンプト</span>
 
       <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
@@ -32,8 +32,8 @@
           <button type="button" class="btn btn-ghost" id="btn-library">書庫をひらく</button>
         </div>
         <p class="note">
-          <strong>いまできること:</strong> 条件を選んで、插絵つきの見開き絵本をめくること。<br>
-          <strong>まだできないこと:</strong> 保存、印刷、外部AIによる插絵。
+          <strong>いまできること:</strong> 条件を選んで插絵つきの絵本をめくること。プロンプトに変換してZIPで保存すること。<br>
+          <strong>まだできないこと:</strong> 種類別フォルダへの保存、印刷、外部AIによる插絵。
         </p>
       </section>
 
@@ -136,6 +136,20 @@
           <button type="button" class="btn btn-ghost" id="btn-book-home">ホームへ</button>
           <button type="button" class="btn btn-ghost" id="btn-book-prev">まえ</button>
           <button type="button" class="btn btn-primary" id="btn-book-next">つぎ</button>
+          <button type="button" class="btn btn-ghost operator-only" id="btn-prompt-zip">プロンプトを保存</button>
+        </div>
+        <div id="studio-prompts" class="studio-panel" hidden>
+          <p class="studio-id" id="studio-bookid"></p>
+          <label class="block-label">この見開きの插絵プロンプト
+            <textarea id="studio-image-prompt" readonly rows="8"></textarea>
+          </label>
+          <label class="block-label">この見開きの文章プロンプト
+            <textarea id="studio-text-prompt" readonly rows="8"></textarea>
+          </label>
+          <details>
+            <summary>共有ロック（全ページ同一）</summary>
+            <pre class="studio-json" id="studio-locks"></pre>
+          </details>
         </div>
         <pre class="studio-json" id="book-studio" hidden></pre>
       </section>
@@ -155,6 +169,9 @@
   <script src="js/bible.js"></script>
   <script src="js/story.js"></script>
   <script src="js/demo-art.js"></script>
+  <script src="js/prompt-templates.js"></script>
+  <script src="js/zip-store.js"></script>
+  <script src="js/prompt-compiler.js"></script>
   <script src="js/viewer.js"></script>
   <script src="js/app.js"></script>
   <script>
