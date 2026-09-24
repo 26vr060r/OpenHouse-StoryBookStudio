@@ -1,4 +1,5 @@
-{{IMAGE_SYSTEM}}
+Create ONE character reference sheet for later scenes.
+Plain studio or paper background is OK here only.
 
 {{STYLE_LOCK}}
 
@@ -6,11 +7,10 @@
 
 {{WORLD_LOCK}}
 
-Create ONE character reference sheet:
-- paper or plain studio background
-- each character standing, full body, facing forward, feet on the ground line
+- each character standing, full body, facing forward, feet on the ground
 - optional extra view: three-quarter, same colors
 - no labels, no arrows, no text in the image
 - accessories from the lock must be clearly visible
+- original designs only: market-similar is OK, identical famous characters are not
 
 {{NEGATIVE}}

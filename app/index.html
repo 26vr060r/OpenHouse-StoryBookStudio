@@ -30,6 +30,7 @@
         </div>
         <div class="actions">
           <button type="button" class="btn btn-primary" id="btn-make">絵本をつくる</button>
+          <button type="button" class="btn btn-ghost" id="btn-make-prompt">プロンプトで絵本をつくる</button>
           <button type="button" class="btn btn-ghost" id="btn-omakase">おまかせで一冊</button>
           <button type="button" class="btn btn-ghost" id="btn-library">書庫をひらく</button>
         </div>
@@ -39,13 +40,14 @@
         </p>
         <p class="note">
           <strong>いまできること:</strong> 条件を選んで絵本をつくり、めくり、1ページだけ描き直し、保存し、印刷すること。<br>
-          待ち時間があるときは「あと○ページ」と出ます。中止すると、途中まで残ります。
+          文章とキャラクターを確認してから絵を描きます。待ち時間があるときは「あと○ページ」と出ます。中止すると、途中まで残ります。
         </p>
         <aside class="home-settings" aria-label="いまの設定">
           <h2 class="home-settings-title">いまの設定</h2>
           <dl class="summary home-settings-list">
             <div><dt>APIキー</dt><dd id="home-setting-key"></dd></div>
             <div><dt>插絵の作り方</dt><dd id="home-setting-mode"></dd></div>
+            <div><dt>文章LLM</dt><dd id="home-setting-text"></dd></div>
             <div><dt>画質</dt><dd id="home-setting-image"></dd></div>
             <div><dt>ページ数</dt><dd id="home-setting-pages"></dd></div>
             <div><dt>通信</dt><dd id="home-setting-net"></dd></div>
@@ -119,7 +121,8 @@
 
         <div id="wizard-step-3" hidden>
           <h2 class="step-title">だれが出てくる？</h2>
-          <p class="privacy-note">実在の子どものフルネームや住所は書かないでください。あとで絵をつくるとき、外部のサービスへ送ることがあります。登場人物は3人が目安で、4人までです。</p>
+          <p class="privacy-note">実在の子どものフルネームや住所は書かないでください。あとで絵をつくるとき、外部のサービスへ送ることがあります。登場人物は3人が目安で、5人までです。</p>
+          <p class="privacy-note">一般の絵本にありそうな雰囲気は大丈夫です。有名なキャラそのものは描けません。似た種類でも、この本だけの見た目にします。</p>
           <div id="character-list"></div>
           <button type="button" class="btn btn-ghost" id="btn-add-character">登場人物を足す</button>
         </div>
@@ -144,12 +147,47 @@
             <div><dt>献辞</dt><dd id="summary-dedication"></dd></div>
             <div><dt>登場人物</dt><dd id="summary-characters"></dd></div>
           </dl>
+          <section class="brief-md" aria-label="指定メモ">
+            <h3 class="brief-md-title">指定メモ（マークダウン）</h3>
+            <p class="note" id="brief-md-note">3ステップまでの指定を、体言止めのメモにしています。ここを直すか、以前のメモを貼ると、同じ指定でつくれます。</p>
+            <p class="note" id="brief-md-note-prompt" hidden>日本語のマークダウンを貼るか、書いてください。読めた指定で絵本をつくります。書庫の指定メモをそのまま使えます。</p>
+            <div class="brief-md-toolbar">
+              <button type="button" class="btn btn-ghost" id="btn-brief-copy">コピー</button>
+              <button type="button" class="btn btn-ghost" id="btn-brief-download">マークダウンを保存</button>
+            </div>
+            <pre class="brief-md-block"><code><textarea id="brief-markdown" class="brief-md-editor" spellcheck="false" aria-label="指定メモのマークダウン"></textarea></code></pre>
+            <p class="error" id="brief-md-error" hidden></p>
+          </section>
           <pre class="studio-json" id="studio-json" hidden></pre>
         </div>
 
         <div class="actions wizard-nav">
           <button type="button" class="btn btn-ghost" id="btn-wizard-back">ホームへ</button>
           <button type="button" class="btn btn-primary" id="btn-wizard-next">つぎへ</button>
+        </div>
+      </section>
+
+      <section class="stage" id="screen-text-review" hidden aria-label="文章の確認">
+        <p class="wizard-progress">ステップ 5 / 6</p>
+        <h2 class="step-title">文章の確認</h2>
+        <p class="note">右ページの文章です。直してから、登場人物の見た目を確認します。1ページあたり日本語400字までです。</p>
+        <p class="error" id="text-review-error" hidden></p>
+        <div id="text-review-list" class="text-review-list"></div>
+        <div class="actions wizard-nav">
+          <button type="button" class="btn btn-ghost" id="btn-text-review-home">ホームへ</button>
+          <button type="button" class="btn btn-primary" id="btn-text-review-paint">キャラクターを確認する</button>
+        </div>
+      </section>
+
+      <section class="stage" id="screen-char-review" hidden aria-label="キャラクターデザインの確認">
+        <p class="wizard-progress">ステップ 6 / 6</p>
+        <h2 class="step-title">キャラクターデザインの確認</h2>
+        <p class="note">登場人物ごとに1枚です。本番の gemini-3.1-flash-image（1K）で、正面・後方・左・右・上・下の6角度を並べます。ここで確定したデザインは固有IDつきの参照画像として、各ページの插絵にそのまま渡します。追加指示を書いて描き直すか、このまま絵本をつくれます。</p>
+        <p class="error" id="char-review-error" hidden></p>
+        <div id="char-review-list" class="char-review-list"></div>
+        <div class="actions wizard-nav">
+          <button type="button" class="btn btn-ghost" id="btn-char-review-home">ホームへ</button>
+          <button type="button" class="btn btn-primary" id="btn-char-review-paint">このデザインで絵本をつくる</button>
         </div>
       </section>
 
@@ -179,6 +217,15 @@
           <button type="button" class="btn btn-ghost" id="btn-write-folder" hidden>フォルダに書き出す</button>
           <button type="button" class="btn btn-ghost operator-only" id="btn-prompt-zip">プロンプトを保存</button>
         </div>
+        <section class="brief-md" id="book-brief" hidden aria-label="指定メモ">
+          <h3 class="brief-md-title">指定メモ（マークダウン）</h3>
+          <p class="note">この絵本をつくったときの指定です。コピーして、新しい絵本のステップ4に貼ると同じ指定を再現できます。</p>
+          <div class="brief-md-toolbar">
+            <button type="button" class="btn btn-ghost" id="btn-book-brief-copy">コピー</button>
+            <button type="button" class="btn btn-ghost" id="btn-book-brief-download">マークダウンを保存</button>
+          </div>
+          <pre class="brief-md-block"><code><textarea id="book-brief-markdown" class="brief-md-editor" readonly spellcheck="false" aria-label="指定メモのマークダウン"></textarea></code></pre>
+        </section>
         <div id="studio-prompts" class="studio-panel" hidden>
           <p class="studio-id" id="studio-bookid"></p>
           <label class="block-label">この見開きの插絵プロンプト
@@ -254,7 +301,24 @@
         </label>
       </fieldset>
       <fieldset class="settings-modes">
-        <legend>画質（Geminiのとき）</legend>
+        <legend>文章LLM</legend>
+        <p class="note">有料モデルは、Google AI Studio で課金を有効にしたキーが必要です。</p>
+        <label class="check-label">
+          <input type="radio" name="text-model" value="3.1-pro">
+          gemini-3.1-pro-preview（有料・最高品質）
+        </label>
+        <label class="check-label">
+          <input type="radio" name="text-model" value="3.5-flash" checked>
+          gemini-3.5-flash（無料枠・推奨）
+        </label>
+        <label class="check-label">
+          <input type="radio" name="text-model" value="2.5-flash">
+          gemini-2.5-flash（無料枠）
+        </label>
+      </fieldset>
+      <fieldset class="settings-modes">
+        <legend>画質（插絵・有料）</legend>
+        <p class="note">插絵モデルに Gemini API の無料枠はありません。キーがあっても課金が必要です。</p>
         <label class="check-label">
           <input type="radio" name="image-tier" value="flash" checked>
           本番 gemini-3.1-flash-image（1K）
@@ -287,6 +351,8 @@
   </dialog>
 
   <script src="js/presets.js"></script>
+  <script src="js/intent-markdown.js"></script>
+  <script src="js/originality.js"></script>
   <script src="js/wizard.js"></script>
   <script src="js/bible.js"></script>
   <script src="js/story.js"></script>

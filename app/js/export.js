@@ -105,13 +105,13 @@
       "html,body{margin:0;background:#f4ead8;color:#3a2a22;font-family:'Noto Serif JP','Hiragino Mincho ProN',serif;}",
       ".bar{padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}",
       ".bar button{min-height:44px;padding:8px 16px;border-radius:999px;border:1px solid #7a2e32;background:#fffaf2;color:#7a2e32;font-family:'Noto Sans JP',sans-serif;}",
-      ".left{background:#efe3d0;padding:12px 28px 12px 12px;}",
+      ".left{background:#efe3d0;padding:0;overflow:hidden;height:100%;}",
       ".right{padding:24px 16px 24px 28px;line-height:1.9;font-size:1.2rem;}",
       ".right.tate,.leaf.tate{writing-mode:vertical-rl;text-orientation:mixed;}",
-      "img{width:100%;height:100%;object-fit:contain;display:block;}",
+      "img{width:100%;height:100%;object-fit:cover;display:block;}",
       ".colophon{margin:16px;padding:24px;color:#6b5348;line-height:1.8;}",
       sheet,
-      "@media print{" + page + " .bar,.colophon{display:none!important;} body{background:#fff;} .left{padding:4mm 10mm 4mm 2mm;} .right{padding:4mm 2mm 4mm 10mm;height:auto;}}"
+      "@media print{" + page + " .bar,.colophon{display:none!important;} body{background:#fff;} .left{padding:0;overflow:hidden;} .right{padding:4mm 2mm 4mm 10mm;height:auto;}}"
     ].join("");
   }
 
@@ -198,12 +198,17 @@
     });
   }
 
-  function fitImage(ctx, img, x, y, w, h) {
+  function coverImage(ctx, img, x, y, w, h) {
     if (!img) return;
-    var scale = Math.min(w / img.width, h / img.height);
+    var scale = Math.max(w / img.width, h / img.height);
     var dw = img.width * scale;
     var dh = img.height * scale;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    ctx.restore();
   }
 
   function drawSpreadPng(book, spread) {
@@ -218,15 +223,15 @@
       ctx.fillRect(0, 0, mid, SPREAD_H);
       ctx.fillStyle = "#fffdf8";
       ctx.fillRect(mid, 0, SPREAD_W - mid, SPREAD_H);
-      fitImage(ctx, img, 40, 40, mid - 80, SPREAD_H - 80);
+      coverImage(ctx, img, 0, 0, mid, SPREAD_H);
       ctx.fillStyle = "#3a2a22";
-      ctx.font = "42px \"Noto Serif JP\", serif";
+      ctx.font = "32px \"Noto Serif JP\", serif";
       ctx.textBaseline = "top";
       var text = SBS.Story.plainText(spread.paragraphs, names);
       if (book.textDirection === "tate") {
-        drawTateText(ctx, text.split("\n"), SPREAD_W - 100, 80, 52, 64);
+        drawTateText(ctx, text.split("\n"), SPREAD_W - 100, 80, 40, 48);
       } else {
-        drawYokoText(ctx, text.split("\n"), mid + 80, 80, 64, SPREAD_W - mid - 160);
+        drawYokoText(ctx, text.split("\n"), mid + 64, 64, 48, SPREAD_W - mid - 120);
       }
       return canvas;
     });
@@ -240,7 +245,7 @@
       var ctx = canvas.getContext("2d");
       ctx.fillStyle = "#efe3d0";
       ctx.fillRect(0, 0, A5_W, A5_H);
-      fitImage(ctx, img, 40, 40, A5_W - 80, A5_H - 80);
+      coverImage(ctx, img, 0, 0, A5_W, A5_H);
       return canvas;
     });
   }
@@ -255,12 +260,12 @@
     ctx.fillStyle = "#fffdf8";
     ctx.fillRect(0, 0, A5_W, A5_H);
     ctx.fillStyle = "#3a2a22";
-    ctx.font = "44px \"Noto Serif JP\", serif";
+    ctx.font = "34px \"Noto Serif JP\", serif";
     ctx.textBaseline = "top";
     if (book.textDirection === "tate") {
-      drawTateText(ctx, text.split("\n"), A5_W - 90, 80, 54, 66);
+      drawTateText(ctx, text.split("\n"), A5_W - 80, 70, 42, 50);
     } else {
-      drawYokoText(ctx, text.split("\n"), 80, 90, 66, A5_W - 160);
+      drawYokoText(ctx, text.split("\n"), 64, 70, 50, A5_W - 128);
     }
     return Promise.resolve(canvas);
   }

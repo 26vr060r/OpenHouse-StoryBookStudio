@@ -3,7 +3,13 @@
   var KEY = "sbs-gemini-key";
   var MODE = "sbs-gen-mode";
   var IMAGE_TIER = "sbs-image-tier";
-  var TEXT_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+  var TEXT_MODEL = "sbs-text-model";
+  var TEXT_MODEL_CHOICES = {
+    "3.1-pro": ["gemini-3.1-pro-preview", "gemini-3.5-flash"],
+    "3.5-flash": ["gemini-3.5-flash", "gemini-2.5-flash"],
+    "2.5-flash": ["gemini-2.5-flash"]
+  };
+  var TEXT_MODEL_PAID = { "3.1-pro": true };
   var IMAGE_MODELS_FLASH = [
     "gemini-3.1-flash-image",
     "gemini-3.1-flash-image-preview",
@@ -23,6 +29,7 @@
   var paintToken = { cancel: false };
   var cachedTextModel = null;
   var cachedImageModel = null;
+  var cachedSheetModel = null;
 
   function getKey() {
     try {
@@ -79,6 +86,39 @@
     }
   }
 
+  function getTextModelId() {
+    try {
+      var id = window.localStorage.getItem(TEXT_MODEL) || "3.5-flash";
+      if (TEXT_MODEL_CHOICES[id]) return id;
+      return "3.5-flash";
+    } catch (err) {
+      return "3.5-flash";
+    }
+  }
+
+  function setTextModelId(value) {
+    var id = TEXT_MODEL_CHOICES[value] ? value : "3.5-flash";
+    if (getTextModelId() !== id) cachedTextModel = null;
+    try {
+      window.localStorage.setItem(TEXT_MODEL, id);
+    } catch (err) {
+      return;
+    }
+  }
+
+  function textModels() {
+    return TEXT_MODEL_CHOICES[getTextModelId()] || TEXT_MODEL_CHOICES["3.5-flash"];
+  }
+
+  function textModelName() {
+    return textModels()[0];
+  }
+
+  function textModelLabel() {
+    var suffix = TEXT_MODEL_PAID[getTextModelId()] ? "（有料・最高品質）" : "（無料枠）";
+    return textModelName() + suffix;
+  }
+
   function imageModels() {
     return getImageTier() === "lite" ? IMAGE_MODELS_LITE : IMAGE_MODELS_FLASH;
   }
@@ -123,9 +163,9 @@
       return "キーがなければデモ插絵です。キーはこのブラウザにだけ残します。ZIP や Git には入りません。";
     }
     if (getMode() === "demo") {
-      return "いまはデモ插絵です。自動または Gemini にすると、キーを使って絵を頼みます。画質は「" + imageTierLabel() + "」です。";
+      return "いまはデモ插絵です。自動または Gemini にすると、キーを使って絵を頼みます。文章は「" + textModelLabel() + "」、画質は「" + imageTierLabel() + "」です。插絵モデルに無料枠はありません。";
     }
-    return "キーがあります。絵本をつくると Gemini（" + imageTierLabel() + "）に送り、失敗したページだけキットで描きます。";
+    return "キーがあります。文章は " + textModelLabel() + "、插絵は " + imageTierLabel() + " です。插絵は有料で、失敗したページだけキットで描きます。";
   }
 
   function wait(ms) {
@@ -186,6 +226,7 @@
     if (blocked(json)) return "";
     var out = "";
     eachPart(json, function (part) {
+      if (part.thought || part.thoughtSignature) return;
       if (part.text) out += part.text;
     });
     return out.replace(/\s+$/, "");
@@ -236,10 +277,10 @@
 
   function generateText(prompt) {
     if (!prompt) return Promise.resolve("");
-    return tryModels(TEXT_MODELS, cachedTextModel, function () {
+    return tryModels(textModels(), cachedTextModel, function () {
       return {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
         safetySettings: SAFETY
       };
     }, extractText, 0).then(function (result) {
@@ -248,27 +289,128 @@
     });
   }
 
-  function generateImage(prompt, sheetUrl) {
-    if (!prompt) return Promise.resolve("");
-    return tryModels(imageModels(), cachedImageModel, function () {
-      var parts = [{ text: prompt }];
-      var parsed = parseDataUrl(sheetUrl);
-      if (parsed) {
-        parts.push({
-          inlineData: { mimeType: parsed.mime, data: parsed.data }
+  function characterRefs(book) {
+    var chars = (book && book.bible && book.bible.characters) || [];
+    var sheets = (book && book.characterSheets) || [];
+    var out = [];
+    var i;
+    var cap = (SBS.LIMITS && SBS.LIMITS.maxCharacters) || 5;
+    for (i = 0; i < chars.length && out.length < cap; i += 1) {
+      if (sheets[i] && sheets[i].url) {
+        out.push({
+          id: chars[i].id || sheets[i].id,
+          name: chars[i].displayName || "",
+          url: sheets[i].url
         });
       }
+    }
+    return out;
+  }
+
+  function generateImage(prompt, sheetUrl, opts) {
+    if (!prompt) return Promise.resolve("");
+    opts = opts || {};
+    var models = opts.models || imageModels();
+    var cached = opts.cacheKey === "sheet" ? cachedSheetModel : cachedImageModel;
+    var refs = [];
+    if (opts.refs && opts.refs.length) {
+      refs = opts.refs;
+    } else if (sheetUrl) {
+      refs = [{ url: sheetUrl }];
+    }
+    return tryModels(models, cached, function () {
+      var parts = [{ text: prompt }];
+      refs.forEach(function (ref) {
+        var parsed = parseDataUrl(ref && ref.url ? ref.url : ref);
+        if (parsed) {
+          parts.push({
+            inlineData: { mimeType: parsed.mime, data: parsed.data }
+          });
+        }
+      });
       return {
         contents: [{ role: "user", parts: parts }],
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: { aspectRatio: "3:4", imageSize: "1K" }
+          imageConfig: opts.imageConfig || { aspectRatio: "3:4", imageSize: "1K" }
         },
         safetySettings: SAFETY
       };
     }, extractImage, 0).then(function (result) {
-      if (result.model) cachedImageModel = result.model;
-      return result.value || "";
+      if (result.model) {
+        if (opts.cacheKey === "sheet") cachedSheetModel = result.model;
+        else cachedImageModel = result.model;
+      }
+      if (!result.value) return "";
+      if (opts.crop === false) return result.value;
+      return cropBlankMargins(result.value);
+    });
+  }
+
+  function cropBlankMargins(dataUrl) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.width;
+          var h = img.height;
+          var canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          var data = ctx.getImageData(0, 0, w, h).data;
+          function blank(x, y) {
+            var i = (y * w + x) * 4;
+            var r = data[i];
+            var g = data[i + 1];
+            var b = data[i + 2];
+            var max = Math.max(r, g, b);
+            var min = Math.min(r, g, b);
+            return max > 228 && (max - min) < 30;
+          }
+          function rowBlank(y) {
+            var x;
+            var n = 0;
+            for (x = 0; x < w; x += 3) if (blank(x, y)) n += 1;
+            return n > (w / 3) * 0.92;
+          }
+          function colBlank(x) {
+            var y;
+            var n = 0;
+            for (y = 0; y < h; y += 3) if (blank(x, y)) n += 1;
+            return n > (h / 3) * 0.92;
+          }
+          var top = 0;
+          var bottom = h - 1;
+          var left = 0;
+          var right = w - 1;
+          while (top < h && rowBlank(top)) top += 1;
+          while (bottom > top && rowBlank(bottom)) bottom -= 1;
+          while (left < w && colBlank(left)) left += 1;
+          while (right > left && colBlank(right)) right -= 1;
+          var pad = Math.round(Math.min(w, h) * 0.06);
+          if (top < pad && left < pad && (h - 1 - bottom) < pad && (w - 1 - right) < pad) {
+            resolve(dataUrl);
+            return;
+          }
+          var cw = right - left + 1;
+          var ch = bottom - top + 1;
+          if (cw < w * 0.55 || ch < h * 0.55) {
+            resolve(dataUrl);
+            return;
+          }
+          var out = document.createElement("canvas");
+          out.width = cw;
+          out.height = ch;
+          out.getContext("2d").drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+          resolve(out.toDataURL("image/png"));
+        } catch (err) {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
     });
   }
 
@@ -296,12 +438,71 @@
     });
   }
 
+  function isMostlyJapanese(text) {
+    var s = String(text || "").replace(/\s+/g, "");
+    if (!s) return false;
+    var jp = (s.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+    var latin = (s.match(/[A-Za-z]/g) || []).length;
+    return jp >= 4 && jp > latin;
+  }
+
+  function pageTextMax() {
+    return (SBS.LIMITS && SBS.LIMITS.pageText) || 400;
+  }
+
+  function isUsablePageText(text, role) {
+    var s = String(text || "").replace(/\s+/g, " ").trim();
+    if (!s || !isMostlyJapanese(s)) return false;
+    if (/（[^）]*$/.test(s)) return false;
+    if (/[A-Za-z]{12,}/.test(s.replace(/[\u3040-\u30ff\u4e00-\u9fff]/g, ""))) return false;
+    if (role === "cover") return s.length >= 2 && s.length <= 80;
+    if (s.length < 12) return false;
+    if (s.length > pageTextMax()) return false;
+    return /[。！？…」）]$/.test(s) || /おしまい/.test(s);
+  }
+
   function applyText(spread, raw) {
-    var lines = String(raw || "").split(/\n+/).map(stripDecor).filter(Boolean).slice(0, 5);
+    var cap = pageTextMax();
+    var body = String(raw || "").replace(/\s+$/, "");
+    if (body.length > cap) body = body.slice(0, cap);
+    var lines = body.split(/\n+/).map(stripDecor).filter(Boolean).slice(0, 12);
     if (!lines.length) return false;
+    if (!isUsablePageText(lines.join("\n"), spread && spread.role)) return false;
     spread.paragraphs = lines.map(function (line) { return parseLine(line); });
     spread.geminiTextDone = true;
     return true;
+  }
+
+  function refreshImagePrompt(book, index) {
+    if (SBS.PromptCompiler && SBS.PromptCompiler.refreshPageImage) {
+      SBS.PromptCompiler.refreshPageImage(book, index);
+    }
+  }
+
+  function writePageText(book, index) {
+    var spread = book.spreads[index];
+    var page = book.prompts.pages && book.prompts.pages[index];
+    if (!spread) return Promise.resolve();
+    function after(raw) {
+      if (raw && applyText(spread, raw)) {
+        spread.geminiTextDone = true;
+      } else {
+        spread.geminiTextDone = true;
+      }
+      refreshImagePrompt(book, index);
+    }
+    return generateText(page && page.text).then(function (raw) {
+      if (isUsablePageText(raw, spread.role)) {
+        after(raw);
+        return;
+      }
+      var hint = spread.role === "cover"
+        ? "\n\n表紙の右ページだけ。タイトルとなまえを1〜2行。日本語のみ。60字以内。"
+        : "\n\n日本語の本文だけ。英語禁止。このページの計画どおりの出来事を書く。字数は計画の範囲。最大400。文末を。！？」で閉じる。テンプレの日常文で埋めない。";
+      return generateText((page && page.text ? page.text : "") + hint).then(function (raw2) {
+        after(isUsablePageText(raw2, spread.role) ? raw2 : raw);
+      });
+    });
   }
 
   function doneCount(book) {
@@ -338,22 +539,198 @@
     if (SBS.DemoArt && SBS.DemoArt.paintOne) SBS.DemoArt.paintOne(book, index);
   }
 
-  function paintBook(book, onProgress, onDone) {
+  function ensureCharacterSheets(book) {
+    var chars = (book && book.bible && book.bible.characters) || [];
+    if (!book.characterSheets) book.characterSheets = [];
+    var i;
+    for (i = 0; i < chars.length; i += 1) {
+      if (!book.characterSheets[i]) {
+        book.characterSheets[i] = { id: chars[i].id, url: "", note: "" };
+      }
+      if (!book.characterSheets[i].id) book.characterSheets[i].id = chars[i].id;
+    }
+    return chars;
+  }
+
+  function paintOneCharacterSheet(book, index, extraNote) {
+    var chars = ensureCharacterSheets(book);
+    var ch = chars[index];
+    if (!ch) return Promise.resolve("");
+    var prompt = (SBS.PromptCompiler && SBS.PromptCompiler.characterTurnaround)
+      ? SBS.PromptCompiler.characterTurnaround(book, index, extraNote)
+      : "";
+    var prev = extraNote && book.characterSheets[index] ? book.characterSheets[index].url : "";
+    function store(url, source) {
+      book.characterSheets[index] = {
+        id: ch.id,
+        url: url || "",
+        note: extraNote || "",
+        source: source || ""
+      };
+      ch.sheet = url || "";
+      return url || "";
+    }
+    if (!wantsGemini() || !prompt) {
+      if (SBS.DemoArt && SBS.DemoArt.paintCharacterSheet) {
+        SBS.DemoArt.paintCharacterSheet(book, index, extraNote);
+        return Promise.resolve(book.characterSheets[index] && book.characterSheets[index].url || "");
+      }
+      return Promise.resolve("");
+    }
+    return generateImage(prompt, prev, {
+      models: IMAGE_MODELS_FLASH,
+      cacheKey: "sheet",
+      crop: false,
+      imageConfig: { aspectRatio: "16:9", imageSize: "1K" }
+    }).then(function (url) {
+      if (url) return store(url, "gemini-flash");
+      if (SBS.DemoArt && SBS.DemoArt.paintCharacterSheet) {
+        SBS.DemoArt.paintCharacterSheet(book, index, extraNote);
+        return book.characterSheets[index] && book.characterSheets[index].url || "";
+      }
+      return store("", "");
+    });
+  }
+
+  function paintCharacterSheets(book, onProgress, onDone) {
+    paintToken.cancel = false;
+    var chars = ensureCharacterSheets(book);
+    var settled = false;
+
+    function finish(status) {
+      if (settled) return;
+      settled = true;
+      if (onDone) onDone(book, status);
+    }
+
+    if (!chars.length) {
+      finish("complete");
+      return Promise.resolve();
+    }
+    if (!wantsGemini()) {
+      return SBS.DemoArt.paintCharacterSheets(book, onProgress, onDone);
+    }
+
+    function run(i) {
+      if (paintToken.cancel) {
+        finish("interrupted");
+        return Promise.resolve();
+      }
+      if (i >= chars.length) {
+        finish("complete");
+        return Promise.resolve();
+      }
+      if (book.characterSheets[i] && book.characterSheets[i].url) {
+        return run(i + 1);
+      }
+      if (onProgress) {
+        onProgress(i, chars.length, (chars[i].displayName || "登場人物") + " の見た目を描いています");
+      }
+      return paintOneCharacterSheet(book, i, book.characterSheets[i].note || "").then(function () {
+        if (paintToken.cancel) {
+          finish("interrupted");
+          return;
+        }
+        return wait(280).then(function () { return run(i + 1); });
+      });
+    }
+
+    if (onProgress) onProgress(0, chars.length, "キャラクターデザインを描いています");
+    return run(0).catch(function () {
+      finish(paintToken.cancel ? "interrupted" : "complete");
+    });
+  }
+
+  function paintCharacterSheet(book, index, extraNote, onProgress, onDone) {
+    paintToken.cancel = false;
+    var chars = ensureCharacterSheets(book);
+    var ch = chars[index];
+    if (onProgress) {
+      onProgress(0, 1, (ch && ch.displayName ? ch.displayName : "登場人物") + " を描き直しています");
+    }
+    return paintOneCharacterSheet(book, index, extraNote).then(function () {
+      if (onDone) onDone(book, paintToken.cancel ? "interrupted" : "complete");
+    }).catch(function () {
+      if (onDone) onDone(book, paintToken.cancel ? "interrupted" : "complete");
+    });
+  }
+
+  function stampModels(book) {
+    book.imageTier = getImageTier();
+    book.imageModel = imageModelName();
+    book.textModel = textModelName();
+    if (book.prompts && book.prompts.meta && book.prompts.meta.models) {
+      book.prompts.meta.models.image = imageModelName();
+      book.prompts.meta.models.text = textModelName();
+    }
+  }
+
+  function writeBook(book, onProgress, onDone) {
+    paintToken.cancel = false;
+    if (!wantsGemini() || !book || !book.prompts) {
+      if (onDone) onDone(book, "complete");
+      return Promise.resolve();
+    }
+    stampModels(book);
+    if (SBS.Story && SBS.Story.attachPlans) SBS.Story.attachPlans(book);
+    if (SBS.PromptCompiler && SBS.PromptCompiler.refreshAllPageText) {
+      SBS.PromptCompiler.refreshAllPageText(book);
+    }
+    var spreads = book.spreads || [];
+    var total = spreads.length;
+    var settled = false;
+
+    function progress(message) {
+      if (onProgress) onProgress(doneCount(book), total, message);
+    }
+
+    function finish(status) {
+      if (settled) return;
+      settled = true;
+      if (onDone) onDone(book, status);
+    }
+
+    function runText(i) {
+      if (paintToken.cancel) {
+        finish("interrupted");
+        return Promise.resolve();
+      }
+      if (i >= spreads.length) {
+        finish("complete");
+        return Promise.resolve();
+      }
+      if (spreads[i].geminiTextDone) {
+        refreshImagePrompt(book, i);
+        return runText(i + 1);
+      }
+      progress("おはなしを書いています（あと " + remainingText(spreads) + " ページ）");
+      return writePageText(book, i).then(function () {
+        if (paintToken.cancel) {
+          finish("interrupted");
+          return;
+        }
+        return wait(280).then(function () { return runText(i + 1); });
+      });
+    }
+
+    progress("おはなしを書いています");
+    return runText(0).catch(function () {
+      finish(paintToken.cancel ? "interrupted" : "complete");
+    });
+  }
+
+  function paintImages(book, onProgress, onDone) {
     paintToken.cancel = false;
     if (!wantsGemini() || !book || !book.prompts) {
       return SBS.DemoArt.paintBook(book, onProgress, onDone);
     }
-    book.imageTier = getImageTier();
-    book.imageModel = imageModelName();
-    if (book.prompts && book.prompts.meta && book.prompts.meta.models) {
-      book.prompts.meta.models.image = imageModelName();
-    }
-
+    stampModels(book);
     var spreads = book.spreads || [];
     var total = spreads.length;
     var usedGemini = 0;
     var usedDemo = 0;
-    var sheetOk = !!book.characterSheet;
+    var refs = characterRefs(book);
+    var sheetOk = refs.length > 0 || !!book.characterSheet;
     var settled = false;
 
     function progress(message) {
@@ -367,37 +744,17 @@
       if (onDone) onDone(book, status);
     }
 
-    function runText(i) {
-      if (paintToken.cancel) {
-        finish("interrupted");
-        return Promise.resolve();
-      }
-      if (i >= spreads.length) return runSheet();
-      if (spreads[i].geminiTextDone) return runText(i + 1);
-      progress("おはなしを整えています（あと " + remainingText(spreads) + " ページ）");
-      var page = book.prompts.pages && book.prompts.pages[i];
-      return generateText(page && page.text).then(function (raw) {
-        if (paintToken.cancel) {
-          finish("interrupted");
-          return;
-        }
-        if (raw) applyText(spreads[i], raw);
-        else spreads[i].geminiTextDone = true;
-        return wait(280).then(function () { return runText(i + 1); });
-      });
-    }
-
     function runSheet() {
       if (paintToken.cancel) {
         finish("interrupted");
         return Promise.resolve();
       }
-      if (book.characterSheet) {
+      if (refs.length || book.characterSheet) {
         sheetOk = true;
         return runImages(0);
       }
       progress("登場人物の見た目をそろえています");
-      return generateImage(book.prompts.characterSheet, null).then(function (url) {
+      return generateImage(book.prompts.characterSheet, null, { crop: false }).then(function (url) {
         if (paintToken.cancel) {
           finish("interrupted");
           return;
@@ -429,8 +786,11 @@
         usedDemo += 1;
         return wait(20).then(function () { return runImages(i + 1); });
       }
+      refreshImagePrompt(book, i);
       var page = book.prompts.pages && book.prompts.pages[i];
-      return generateImage(page && page.image, book.characterSheet).then(function (url) {
+      return generateImage(page && page.image, book.characterSheet, {
+        refs: refs.length ? refs : null
+      }).then(function (url) {
         if (paintToken.cancel) {
           finish("interrupted");
           return;
@@ -448,13 +808,23 @@
       });
     }
 
-    progress("おはなしを整えています");
-    return runText(0).catch(function () {
+    progress("絵を描いています");
+    return runSheet().catch(function () {
       if (paintToken.cancel) {
         finish("interrupted");
         return;
       }
       return runImages(0);
+    });
+  }
+
+  function paintBook(book, onProgress, onDone) {
+    return writeBook(book, onProgress, function (finished, status) {
+      if (status === "interrupted") {
+        if (onDone) onDone(finished, status);
+        return;
+      }
+      paintImages(finished, onProgress, onDone);
     });
   }
 
@@ -505,6 +875,7 @@
     }
     book.imageTier = getImageTier();
     book.imageModel = imageModelName();
+    book.textModel = textModelName();
 
     function runImage() {
         if (paintToken.cancel) {
@@ -514,8 +885,12 @@
           return Promise.resolve();
         }
       progress("このページの絵を描いています");
+      refreshImagePrompt(book, spreadIndex);
       var page = book.prompts.pages && book.prompts.pages[spreadIndex];
-      return generateImage(page && page.image, book.characterSheet).then(function (url) {
+      var refs = characterRefs(book);
+      return generateImage(page && page.image, book.characterSheet, {
+        refs: refs.length ? refs : null
+      }).then(function (url) {
         if (paintToken.cancel) {
           spread.leftArt = previous;
           spread.artSource = previousSource;
@@ -538,9 +913,9 @@
       });
     }
 
-    if (book.characterSheet) return runImage();
+    if (characterRefs(book).length || book.characterSheet) return runImage();
     progress("登場人物の見た目をそろえています");
-    return generateImage(book.prompts.characterSheet, null).then(function (url) {
+    return generateImage(book.prompts.characterSheet, null, { crop: false }).then(function (url) {
       if (paintToken.cancel) {
         spread.leftArt = previous;
         spread.artSource = previousSource;
@@ -567,6 +942,10 @@
     setMode: setMode,
     getImageTier: getImageTier,
     setImageTier: setImageTier,
+    getTextModelId: getTextModelId,
+    setTextModelId: setTextModelId,
+    textModelName: textModelName,
+    textModelLabel: textModelLabel,
     imageModelName: imageModelName,
     imageTierLabel: imageTierLabel,
     modeLabel: modeLabel,
@@ -577,8 +956,12 @@
       paintToken.cancel = true;
       if (SBS.DemoArt) SBS.DemoArt.cancelPaint();
     },
+    writeBook: writeBook,
+    paintImages: paintImages,
     paintBook: paintBook,
-    paintSpread: paintSpread
+    paintSpread: paintSpread,
+    paintCharacterSheets: paintCharacterSheets,
+    paintCharacterSheet: paintCharacterSheet
   };
 
   global.SBS = SBS;

@@ -1,6 +1,6 @@
 World lock:
 Setting: {{SETTING_LABEL}} (id: {{SETTING_ID}})
-Ground line: {{GROUND_LINE}} of frame height from the top. Every character stands on this ground.
+Characters stand on a ground in the scene. The painting still fills the whole frame; do not leave empty paper around the picture.
 pixelsPerUnit: {{PIXELS_PER_UNIT}} (hero heightUnits 1.0).
 Recurring props: {{RECURRING_PROPS}}
 Do not float characters or change the horizon.

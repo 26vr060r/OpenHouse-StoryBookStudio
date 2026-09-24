@@ -85,6 +85,7 @@
 
     $("btn-book-prev").disabled = index <= 0;
     $("btn-book-next").disabled = index >= pageCount() - 1;
+    fillBookBrief();
 
     var studio = $("book-studio");
     var panel = $("studio-prompts");
@@ -120,6 +121,15 @@
       if (studio) studio.hidden = true;
       if (panel) panel.hidden = true;
     }
+  }
+
+  function fillBookBrief() {
+    var box = $("book-brief");
+    var editor = $("book-brief-markdown");
+    if (!box || !editor || !SBS.IntentMarkdown) return;
+    var text = SBS.IntentMarkdown.fromBook(book);
+    editor.value = text || "";
+    box.hidden = !text;
   }
 
   function go(delta) {
@@ -174,6 +184,25 @@
     bind: function bind() {
       $("btn-book-prev").addEventListener("click", function () { go(-1); });
       $("btn-book-next").addEventListener("click", function () { go(1); });
+      if ($("btn-book-brief-copy")) {
+        $("btn-book-brief-copy").addEventListener("click", function () {
+          var editor = $("book-brief-markdown");
+          if (!editor || !SBS.IntentMarkdown) return;
+          SBS.IntentMarkdown.copy(editor.value).then(function () {
+            $("btn-book-brief-copy").textContent = "コピーしました";
+            window.setTimeout(function () {
+              $("btn-book-brief-copy").textContent = "コピー";
+            }, 1600);
+          });
+        });
+      }
+      if ($("btn-book-brief-download")) {
+        $("btn-book-brief-download").addEventListener("click", function () {
+          var editor = $("book-brief-markdown");
+          if (!editor || !SBS.IntentMarkdown) return;
+          SBS.IntentMarkdown.download(editor.value, SBS.IntentMarkdown.intentFromBook(book));
+        });
+      }
       document.addEventListener("keydown", onKey);
       var stage = $("book-spread");
       stage.addEventListener("touchstart", onTouchStart, { passive: true });

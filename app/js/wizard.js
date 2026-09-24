@@ -18,7 +18,9 @@
     title: "",
     titleTouched: false,
     dedication: "",
-    characters: []
+    characters: [],
+    briefTouched: false,
+    promptOnly: false
   };
 
   function $(id) {
@@ -246,7 +248,16 @@
       if (!heroName().trim()) return "主人公の名前を入力してください。";
     }
     if (step === 4) {
-      if (!(state.title || suggestTitle()).trim()) return "タイトルを入力してください。";
+      if (state.promptOnly && (!briefEl() || !briefEl().value.trim())) {
+        return "マークダウンを貼るか、書いてください。";
+      }
+      if (!(state.title || suggestTitle()).trim() && !(briefEl() && briefEl().value.trim())) {
+        return "タイトルを入力してください。";
+      }
+      if (briefEl() && briefEl().value.trim()) {
+        var parsed = parseBriefToIntent();
+        if (parsed.error) return parsed.error;
+      }
     }
     return "";
   }
@@ -356,7 +367,8 @@
         "</label>" +
         "<label>とくちょう" +
         "<textarea data-field=\"traits\" maxlength=\"" + SBS.LIMITS.freeText + "\" rows=\"2\"></textarea>" +
-        "</label>";
+        "</label>" +
+        "<p class=\"privacy-note\" data-originality-hint hidden></p>";
       host.appendChild(card);
 
       var nameEl = card.querySelector("[data-field=name]");
@@ -369,6 +381,24 @@
       roleFreeEl.value = ch.role ? "" : (ch.roleFree || "");
       kindFreeEl.value = ch.kind ? "" : (ch.kindFree || "");
       personalityFreeEl.value = ch.personalityFree || "";
+
+      function refreshOriginalityHint() {
+        var hint = card.querySelector("[data-originality-hint]");
+        if (!hint || !SBS.Originality || !SBS.Originality.forCharacter) return;
+        var info = SBS.Originality.forCharacter({
+          name: nameEl.value,
+          traits: traitsEl.value,
+          roleFree: roleFreeEl.value,
+          kindFree: kindFreeEl.value,
+          personalityFree: personalityFreeEl.value
+        });
+        hint.hidden = !info.hint;
+        hint.textContent = info.hint || "";
+      }
+      [nameEl, traitsEl, roleFreeEl, kindFreeEl, personalityFreeEl].forEach(function (el) {
+        el.addEventListener("input", refreshOriginalityHint);
+      });
+      refreshOriginalityHint();
 
       bindExclusiveChipRow(card.querySelector("[data-role-row]"), "data-role", ch.role, roleFreeEl, function (id) {
         if (id !== "hero") return;
@@ -402,6 +432,51 @@
     $("btn-add-character").hidden = state.characters.length >= SBS.LIMITS.maxCharacters;
   }
 
+  function briefEl() {
+    return $("brief-markdown");
+  }
+
+  function showBriefError(message) {
+    var el = $("brief-md-error");
+    if (!el) return;
+    el.hidden = !message;
+    el.textContent = message || "";
+  }
+
+  function writeBriefFromIntent(intent) {
+    var el = briefEl();
+    if (!el || !SBS.IntentMarkdown) return;
+    el.value = SBS.IntentMarkdown.stringify(intent);
+    showBriefError("");
+  }
+
+  function parseBriefToIntent() {
+    var el = briefEl();
+    if (!el || !SBS.IntentMarkdown) return { intent: buildIntent(), error: "" };
+    return SBS.IntentMarkdown.parse(el.value);
+  }
+
+  function applyParsedBrief(silent) {
+    var parsed = parseBriefToIntent();
+    if (parsed.error) {
+      if (!silent) showBriefError(parsed.error);
+      return parsed;
+    }
+    showBriefError("");
+    applyIntent(parsed.intent);
+    if (parsed.intent.pageCount && SBS.setPageCount) SBS.setPageCount(parsed.intent.pageCount);
+    fillInputs();
+    bindChips();
+    return parsed;
+  }
+
+  function patchBriefLine(label, value) {
+    var el = briefEl();
+    if (!el) return;
+    var re = new RegExp("^(-\\s*" + label + "[：:]).*$", "m");
+    if (re.test(el.value)) el.value = el.value.replace(re, "$1" + (value || "なし"));
+  }
+
   function fillSummary() {
     var intent = buildIntent();
     var P = SBS.PRESETS;
@@ -432,6 +507,7 @@
         studio.hidden = true;
       }
     }
+    if (!state.briefTouched) writeBriefFromIntent(intent);
   }
 
   function goStep(step) {
@@ -441,11 +517,14 @@
       if (panel) panel.hidden = n !== step;
     });
     $("wizard-progress").textContent = "ステップ " + step + " / " + STEP_COUNT;
-    $("btn-wizard-back").textContent = step === 1 ? "ホームへ" : "戻る";
+    $("btn-wizard-back").textContent = (step === 1 || (state.promptOnly && step === 4)) ? "ホームへ" : "戻る";
     $("btn-wizard-next").textContent = step === 4 ? "この条件でつくる" : "つぎへ";
     showError("");
+    if ($("brief-md-note")) $("brief-md-note").hidden = !!(state.promptOnly && step === 4);
+    if ($("brief-md-note-prompt")) $("brief-md-note-prompt").hidden = !(state.promptOnly && step === 4);
     if (step === 3) renderCharacters();
     if (step === 4) {
+      if (!state.promptOnly) state.briefTouched = false;
       if (!state.titleTouched) {
         $("title-input").value = suggestTitle();
         state.title = $("title-input").value;
@@ -597,8 +676,79 @@
     $("dedication-input").value = state.dedication;
   }
 
+  function finishIntent() {
+    var parsed = applyParsedBrief(false);
+    if (parsed.error) return null;
+    var intent = parsed.intent;
+    if (!intent.title) intent.title = suggestTitle();
+    intent.briefMarkdown = SBS.IntentMarkdown
+      ? SBS.IntentMarkdown.stripFence(briefEl() ? briefEl().value : "")
+      : "";
+    return intent;
+  }
+
+  function bindBrief() {
+    var editor = briefEl();
+    if (!editor || editor.getAttribute("data-bound") === "1") return;
+    editor.setAttribute("data-bound", "1");
+    editor.addEventListener("input", function () {
+      state.briefTouched = true;
+      applyParsedBrief(true);
+      fillSummaryLabelsOnly();
+    });
+    if ($("btn-brief-copy")) {
+      $("btn-brief-copy").addEventListener("click", function () {
+        if (!SBS.IntentMarkdown) return;
+        SBS.IntentMarkdown.copy(editor.value).then(function () {
+          $("btn-brief-copy").textContent = "コピーしました";
+          window.setTimeout(function () {
+            $("btn-brief-copy").textContent = "コピー";
+          }, 1600);
+        }).catch(function () {
+          showBriefError("コピーできませんでした。枠内を選んでコピーしてください。");
+        });
+      });
+    }
+    if ($("btn-brief-download")) {
+      $("btn-brief-download").addEventListener("click", function () {
+        if (!SBS.IntentMarkdown) return;
+        var parsed = parseBriefToIntent();
+        SBS.IntentMarkdown.download(editor.value, parsed.intent);
+      });
+    }
+  }
+
+  function fillSummaryLabelsOnly() {
+    var intent = buildIntent();
+    var parsed = parseBriefToIntent();
+    if (!parsed.error) intent = parsed.intent;
+    var P = SBS.PRESETS;
+    if ($("summary-theme")) $("summary-theme").textContent = SBS.labelOf(P.themes, intent.theme.preset) || intent.theme.freeText || "（未設定）";
+    if ($("summary-audience")) $("summary-audience").textContent = SBS.labelOf(P.audiences, intent.audience) || "（未設定）";
+    var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
+    if ($("summary-structure")) $("summary-structure").textContent = SBS.labelOf(P.structures, structurePick.preset) || structurePick.freeText || "（未設定）";
+    if ($("summary-setting")) $("summary-setting").textContent = SBS.labelOf(P.settings, intent.setting.preset) || intent.setting.freeText || "（未設定）";
+    var moodPick = SBS.moodOf ? SBS.moodOf(intent) : { preset: intent.mood || "", freeText: "" };
+    if ($("summary-mood")) $("summary-mood").textContent = SBS.labelOf(P.moods, moodPick.preset) || moodPick.freeText || "（未設定）";
+    if ($("summary-direction")) $("summary-direction").textContent = SBS.labelOf(P.directions, intent.textDirection);
+    if ($("summary-furigana")) $("summary-furigana").textContent = intent.furigana ? "つける" : "つけない";
+    if ($("summary-title")) $("summary-title").textContent = intent.title || "（未設定）";
+    if ($("summary-dedication")) $("summary-dedication").textContent = intent.dedication || "（なし）";
+    if ($("summary-characters")) {
+      $("summary-characters").textContent = (intent.characters || []).map(function (c) {
+        var role = roleLabelOf(c) || "（やくわり未設定）";
+        var kind = SBS.labelOf(P.kinds, c.kind) || String(c.kindFree || "").trim();
+        var pers = SBS.personalityLine ? SBS.personalityLine(c) : "";
+        return role + " " + (c.name || "（無名）") + (kind ? "（" + kind + "）" : "") + (pers ? " / " + pers : "");
+      }).join("、");
+    }
+    if ($("title-input") && intent.title) $("title-input").value = intent.title;
+    if ($("dedication-input")) $("dedication-input").value = intent.dedication || "";
+  }
+
   SBS.Wizard = {
     start: function start(seed) {
+      state.promptOnly = false;
       applyIntent(seed || {
         textDirection: "yoko",
         furigana: true,
@@ -606,6 +756,7 @@
       });
       fillInputs();
       bindChips();
+      bindBrief();
       goStep(1);
     },
     next: function next() {
@@ -618,11 +769,38 @@
         goStep(state.step + 1);
         return null;
       }
-      return buildIntent();
+      return finishIntent();
+    },
+    startPrompt: function startPrompt() {
+      applyIntent({
+        textDirection: "yoko",
+        furigana: true,
+        characters: [emptyCharacter("hero")]
+      });
+      state.title = "";
+      state.titleTouched = true;
+      state.briefTouched = true;
+      state.promptOnly = true;
+      fillInputs();
+      bindChips();
+      bindBrief();
+      goStep(4);
+      var editor = briefEl();
+      if (editor) {
+        editor.value = "";
+        editor.placeholder = (SBS.IntentMarkdown && SBS.IntentMarkdown.example)
+          ? SBS.IntentMarkdown.example()
+          : "# 絵本指定\n- テーマ：勇気";
+        editor.focus();
+      }
+      if ($("title-input")) $("title-input").value = "";
+      if ($("dedication-input")) $("dedication-input").value = "";
+      fillSummaryLabelsOnly();
     },
     back: function back() {
       readFormIntoState();
       showError("");
+      if (state.promptOnly && state.step === 4) return "home";
       if (state.step === 1) return "home";
       if (state.step === 3) collectCharactersFromDom();
       goStep(state.step - 1);
@@ -636,10 +814,19 @@
     },
     markTitleTouched: function markTitleTouched() {
       state.titleTouched = true;
+      readFormIntoState();
+      if ($("summary-title")) $("summary-title").textContent = state.title || suggestTitle();
+      patchBriefLine("タイトル", state.title || suggestTitle());
     },
     markFuriganaTouched: function markFuriganaTouched() {
       state.furiganaTouched = true;
     },
+    markDedication: function markDedication() {
+      readFormIntoState();
+      if ($("summary-dedication")) $("summary-dedication").textContent = state.dedication || "（なし）";
+      patchBriefLine("献辞", state.dedication || "なし");
+    },
+    bindBrief: bindBrief,
     currentIntent: buildIntent
   };
 

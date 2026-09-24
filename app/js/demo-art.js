@@ -323,6 +323,51 @@
     return canvas.toDataURL("image/png");
   }
 
+  function renderTurnaround(ch) {
+    var canvas = document.createElement("canvas");
+    var w = 1400;
+    var h = 788;
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#efe6d4";
+    ctx.fillRect(0, 0, w, h);
+    var cols = 3;
+    var rows = 2;
+    var cellW = w / cols;
+    var cellH = h / rows;
+    var views = [
+      { pose: "stand", flip: false, scale: 1, dy: 0 },
+      { pose: "stand", flip: true, scale: 1, dy: 0, back: true },
+      { pose: "walk", flip: false, scale: 1, dy: 0 },
+      { pose: "walk", flip: true, scale: 1, dy: 0 },
+      { pose: "look", flip: false, scale: 0.72, dy: -18 },
+      { pose: "stand", flip: false, scale: 1.18, dy: 22 }
+    ];
+    views.forEach(function (view, i) {
+      var col = i % cols;
+      var row = Math.floor(i / cols);
+      var x0 = col * cellW;
+      var y0 = row * cellH;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x0 + 8, y0 + 8, cellW - 16, cellH - 16);
+      ctx.clip();
+      ctx.fillStyle = "#f7efe2";
+      ctx.fillRect(x0 + 8, y0 + 8, cellW - 16, cellH - 16);
+      var cx = x0 + cellW / 2;
+      var groundY = y0 + cellH * 0.86 + view.dy;
+      ctx.fillStyle = "#d8c7b0";
+      ctx.fillRect(x0 + 18, groundY, cellW - 36, 8);
+      ctx.translate(cx, groundY);
+      ctx.scale(view.flip ? -view.scale : view.scale, view.scale);
+      if (view.back) ctx.globalAlpha = 0.92;
+      drawCharacter(ctx, ch, 0, 0, view.pose, 160);
+      ctx.restore();
+    });
+    return canvas.toDataURL("image/png");
+  }
+
   function openCache() {
     return new Promise(function (resolve) {
       if (!window.indexedDB) {
@@ -376,6 +421,90 @@
 
       if (onProgress) onProgress(i, spreads.length, MESSAGES[0]);
       window.setTimeout(tick, 40);
+    },
+    paintCharacterSheet: function paintCharacterSheet(book, index, extraNote) {
+      var chars = (book && book.bible && book.bible.characters) || [];
+      var ch = chars[index];
+      if (!ch) return "";
+      if (!book.characterSheets) book.characterSheets = [];
+      var url = renderTurnaround(ch);
+      book.characterSheets[index] = {
+        id: ch.id,
+        url: url,
+        note: extraNote || "",
+        source: "demo"
+      };
+      ch.sheet = url;
+      return url;
+    },
+    paintCharacterSheets: function paintCharacterSheets(book, onProgress, onDone) {
+      var chars = (book && book.bible && book.bible.characters) || [];
+      var i;
+      paintToken.cancel = false;
+      if (!book.characterSheets) book.characterSheets = [];
+      for (i = 0; i < chars.length; i += 1) {
+        if (paintToken.cancel) {
+          if (onDone) onDone(book, "interrupted");
+          return;
+        }
+        if (onProgress) {
+          onProgress(i, chars.length, (chars[i].displayName || "登場人物") + " の見た目を描いています");
+        }
+        if (!book.characterSheets[i] || !book.characterSheets[i].url) {
+          SBS.DemoArt.paintCharacterSheet(book, i, (book.characterSheets[i] && book.characterSheets[i].note) || "");
+        }
+      }
+      if (onDone) onDone(book, "complete");
+    },
+    composeCharacterSheet: function composeCharacterSheet(book) {
+      var sheets = ((book && book.characterSheets) || []).map(function (s) {
+        return s && s.url;
+      }).filter(Boolean);
+      if (!sheets.length) return Promise.resolve(book);
+      if (sheets.length === 1) {
+        book.characterSheet = sheets[0];
+        return Promise.resolve(book);
+      }
+      return new Promise(function (resolve) {
+        var loaded = [];
+        var left = sheets.length;
+        sheets.forEach(function (url, i) {
+          var img = new Image();
+          img.onload = function () {
+            loaded[i] = img;
+            left -= 1;
+            if (!left) stitch();
+          };
+          img.onerror = function () {
+            left -= 1;
+            if (!left) stitch();
+          };
+          img.src = url;
+        });
+        function stitch() {
+          var imgs = loaded.filter(Boolean);
+          if (!imgs.length) {
+            resolve(book);
+            return;
+          }
+          var w = 1400;
+          var cellH = 420;
+          var canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = cellH * imgs.length;
+          var ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#f4ead8";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          imgs.forEach(function (img, i) {
+            var scale = Math.min(w / img.width, cellH / img.height);
+            var dw = img.width * scale;
+            var dh = img.height * scale;
+            ctx.drawImage(img, (w - dw) / 2, i * cellH + (cellH - dh) / 2, dw, dh);
+          });
+          book.characterSheet = canvas.toDataURL("image/png");
+          resolve(book);
+        }
+      });
     },
     cachePut: function cachePut(key, book) {
       openCache().then(function (db) {
