@@ -139,8 +139,13 @@
       document.body.classList.remove("print-kind-spread", "print-kind-booklet");
     }
     if (lede) {
-      if (name === "wizard") lede.textContent = "選んだことは、あとから物語と插絵の材料になります。";
-      else if (name === "book") lede.textContent = "左が插絵、右が文章です。キャラの見た目は全ページでそろえています。";
+      if (name === "wizard") {
+        lede.textContent = (SBS.Wizard && SBS.Wizard.hasBook && SBS.Wizard.hasBook())
+          ? "この絵本の指定です。戻ると絵本、つぎへで文章確認へ進めます。"
+          : "選んだことは、あとから物語と插絵の材料になります。";
+      } else if (name === "book") {
+        lede.textContent = "左が插絵、右が文章です。「工程に戻る」で指定からキャラ確認まで見直せます。";
+      }
       else if (name === "generating") {
         lede.textContent = redrawing
           ? "いま、このページの絵を描き直しています。"
@@ -197,8 +202,13 @@
     });
   }
 
+  function bookHasArt(book) {
+    return ((book && book.spreads) || []).some(function (s) { return s && s.leftArt; });
+  }
+
   function showTextReview(book) {
     reviewBook = book;
+    if (SBS.Wizard && SBS.Wizard.attachBook) SBS.Wizard.attachBook();
     var host = $("text-review-list");
     var err = $("text-review-error");
     if (err) {
@@ -223,7 +233,8 @@
       wrap.className = "text-review-item";
       var label = document.createElement("label");
       label.className = "block-label";
-      label.textContent = "右ページ " + (i * 2 + 2) + "（見開き" + spread.n + "）";
+      label.textContent = "右ページ " + (i * 2 + 2) + "（見開き" + spread.n + "）" +
+        (book.furigana ? "　ふりがなは 漢字（ひらがな） の形で書いてください" : "");
       var ta = document.createElement("textarea");
       ta.id = "review-text-" + i;
       ta.rows = 6;
@@ -289,13 +300,42 @@
 
   function showCharReview(book) {
     reviewBook = book;
+    if (SBS.Wizard && SBS.Wizard.attachBook) SBS.Wizard.attachBook();
     var err = $("char-review-error");
     if (err) {
       err.hidden = true;
       err.textContent = "";
     }
+    if ($("btn-char-review-book")) $("btn-char-review-book").hidden = !bookHasArt(book);
     renderCharReview(book);
     showScreen("char-review");
+  }
+
+  function hydrateWizardFromBook(book) {
+    if (SBS.Wizard && SBS.Wizard.resumeFromBook) SBS.Wizard.resumeFromBook(book);
+  }
+
+  function returnToBook() {
+    var book = reviewBook || (SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current());
+    if (!book) {
+      showScreen("home");
+      return;
+    }
+    persistBook(book);
+    showScreen("book");
+    SBS.Viewer.open(book);
+    refreshFolderButton();
+  }
+
+  function openStepsFromBook(book) {
+    if (!book) return;
+    reviewBook = book;
+    hydrateWizardFromBook(book);
+    if (sheetsReady(book) || !((book.bible && book.bible.characters) || []).length) {
+      showCharReview(book);
+    } else {
+      showTextReview(book);
+    }
   }
 
   function renderCharReview(book) {
@@ -597,6 +637,8 @@
             showSoon("書庫", "この絵本を開けませんでした。");
             return;
           }
+          reviewBook = book;
+          hydrateWizardFromBook(book);
           showScreen("book");
           SBS.Viewer.open(book);
           refreshFolderButton();
@@ -651,14 +693,15 @@
         else writeThenReview(book);
       });
     });
-    if ($("btn-text-review-home")) {
-      $("btn-text-review-home").addEventListener("click", function () {
+    if ($("btn-text-review-back")) {
+      $("btn-text-review-back").addEventListener("click", function () {
         if (reviewBook) {
-          SBS.LibraryIO.sessionSave(reviewBook, "interrupted", doneCount(reviewBook), (reviewBook.spreads || []).length);
+          applyTextReview(reviewBook);
+          persistBook(reviewBook);
+          hydrateWizardFromBook(reviewBook);
         }
-        reviewBook = null;
-        showScreen("home");
-        refreshResume();
+        showScreen("wizard");
+        if (SBS.Wizard && SBS.Wizard.goTo) SBS.Wizard.goTo(4);
       });
     }
     if ($("btn-text-review-paint")) {
@@ -672,17 +715,20 @@
           }
           return;
         }
-        reviewCharactersAndOpen(reviewBook);
+        persistBook(reviewBook);
+        if (sheetsReady(reviewBook)) showCharReview(reviewBook);
+        else reviewCharactersAndOpen(reviewBook);
       });
     }
-    if ($("btn-char-review-home")) {
-      $("btn-char-review-home").addEventListener("click", function () {
-        if (reviewBook) {
-          SBS.LibraryIO.sessionSave(reviewBook, "interrupted", doneCount(reviewBook), (reviewBook.spreads || []).length);
-        }
-        reviewBook = null;
-        showScreen("home");
-        refreshResume();
+    if ($("btn-char-review-back")) {
+      $("btn-char-review-back").addEventListener("click", function () {
+        if (!reviewBook) return;
+        showTextReview(reviewBook);
+      });
+    }
+    if ($("btn-char-review-book")) {
+      $("btn-char-review-book").addEventListener("click", function () {
+        returnToBook();
       });
     }
     if ($("btn-char-review-paint")) {
@@ -752,11 +798,22 @@
     $("btn-wizard-back").addEventListener("click", function () {
       var where = SBS.Wizard.back();
       if (where === "home") showScreen("home");
+      else if (where === "book") returnToBook();
     });
     $("btn-wizard-next").addEventListener("click", function () {
-      var intent = SBS.Wizard.next();
-      if (intent) openBook(intent);
+      var result = SBS.Wizard.next();
+      if (result && result.resume) {
+        if (reviewBook) showTextReview(reviewBook);
+        return;
+      }
+      if (result) openBook(result);
     });
+    if ($("btn-wizard-remake")) {
+      $("btn-wizard-remake").addEventListener("click", function () {
+        var intent = SBS.Wizard.remake && SBS.Wizard.remake();
+        if (intent) openBook(intent);
+      });
+    }
     $("btn-add-character").addEventListener("click", function () {
       SBS.Wizard.addCharacter();
     });
@@ -775,6 +832,16 @@
       showScreen("home");
       refreshResume();
     });
+    if ($("btn-book-steps")) {
+      $("btn-book-steps").addEventListener("click", function () {
+        var current = (SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current()) || reviewBook;
+        if (!current) {
+          showSoon("工程", "先に絵本を開いてから、工程に戻ってください。");
+          return;
+        }
+        openStepsFromBook(current);
+      });
+    }
     if ($("btn-redraw")) {
       $("btn-redraw").addEventListener("click", redrawCurrent);
     }

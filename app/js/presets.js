@@ -49,19 +49,21 @@
 
   SBS.PRESETS = {
     themes: [
-      { id: "yuuki", label: "勇気" },
-      { id: "kindness", label: "やさしさ" },
-      { id: "friendship", label: "友情" },
-      { id: "challenge", label: "挑戦" },
-      { id: "family", label: "家族" },
-      { id: "curiosity", label: "好奇心" },
-      { id: "nature", label: "自然を大切に" },
-      { id: "its-ok", label: "失敗しても大丈夫" }
+      { id: "yuuki", label: "勇気", kana: "ゆうき", kana79: "ゆうき" },
+      { id: "kindness", label: "やさしさ", kana: "やさしさ", kana79: "やさしさ" },
+      { id: "friendship", label: "友情", kana: "ゆうじょう", kana79: "友じょう" },
+      { id: "challenge", label: "挑戦", kana: "ちょうせん", kana79: "ちょうせん" },
+      { id: "family", label: "家族", kana: "かぞく", kana79: "家ぞく" },
+      { id: "curiosity", label: "好奇心", kana: "こうきしん", kana79: "こうきしん" },
+      { id: "nature", label: "自然を大切に", kana: "しぜんをたいせつに", kana79: "しぜんを大切に" },
+      { id: "its-ok", label: "失敗しても大丈夫", kana: "しっぱいしてもだいじょうぶ", kana79: "しっぱいしてもだいじょうぶ" }
     ],
     audiences: [
       { id: "age-2-3", label: "2〜3歳", furiganaDefault: true },
       { id: "age-4-6", label: "4〜6歳", furiganaDefault: true },
       { id: "age-7-9", label: "7〜9歳", furiganaDefault: false },
+      { id: "age-10-12", label: "10〜12歳", furiganaDefault: false },
+      { id: "age-13-15", label: "13〜15歳", furiganaDefault: false },
       { id: "with-adults", label: "おとなと一緒に", furiganaDefault: false }
     ],
     structures: [
@@ -73,13 +75,13 @@
       { id: "explain", label: "知ってほしいこと" }
     ],
     settings: [
-      { id: "forest", label: "森" },
-      { id: "sea", label: "海" },
-      { id: "town", label: "まち" },
-      { id: "school", label: "学校" },
-      { id: "home", label: "うち" },
-      { id: "space", label: "宇宙" },
-      { id: "fantasy", label: "ファンタジーの国" }
+      { id: "forest", label: "森", kana: "もり", kana79: "森" },
+      { id: "sea", label: "海", kana: "うみ", kana79: "海" },
+      { id: "town", label: "まち", kana: "まち", kana79: "まち" },
+      { id: "school", label: "学校", kana: "がっこう", kana79: "学校" },
+      { id: "home", label: "うち", kana: "うち", kana79: "うち" },
+      { id: "space", label: "宇宙", kana: "うちゅう", kana79: "うちゅう" },
+      { id: "fantasy", label: "ファンタジーの国", kana: "ファンタジーのくに", kana79: "ファンタジーの国" }
     ],
     moods: [
       { id: "watercolor", label: "やさしい水彩" },
@@ -216,6 +218,30 @@
       if (list[i].id === id) return list[i].label;
     }
     return "";
+  };
+
+  SBS.audienceWord = function audienceWord(list, field, audience) {
+    var free = "";
+    var id = "";
+    var i;
+    var item = null;
+    if (field && typeof field === "object") {
+      free = field.freeText || "";
+      id = field.preset || "";
+    } else if (typeof field === "string") {
+      id = field;
+    }
+    if (free) return free;
+    for (i = 0; i < (list || []).length; i += 1) {
+      if (list[i].id === id) {
+        item = list[i];
+        break;
+      }
+    }
+    if (!item) return "";
+    if ((audience === "age-2-3" || audience === "age-4-6") && item.kana) return item.kana;
+    if (audience === "age-7-9" && item.kana79) return item.kana79;
+    return item.label;
   };
 
   global.SBS = SBS;

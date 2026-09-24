@@ -58,7 +58,7 @@
 
       <section class="stage" id="screen-library" hidden aria-label="書庫">
         <h2 class="step-title">書庫</h2>
-        <p class="note" id="library-folder-note">ブラウザの中に保存した絵本です。Chrome なら歯車からフォルダにも書き出せます。</p>
+        <p class="note" id="library-folder-note">ブラウザの中に保存した絵本です。開いたあと「工程に戻る」で、ステップ1から6までの指定・文章・キャラ確認を見直せます。Chrome なら歯車からフォルダにも書き出せます。</p>
         <ul class="library-list" id="library-list"></ul>
         <p class="empty-library" id="library-empty">まだ保存した絵本はありません。絵本をつくるとここに並びます。「この絵本を保存」でZIPも出せます。</p>
         <div class="actions wizard-nav">
@@ -68,7 +68,7 @@
       </section>
 
       <section class="stage" id="screen-wizard" hidden aria-label="絵本の条件">
-        <p id="wizard-progress" class="wizard-progress">ステップ 1 / 4</p>
+        <p id="wizard-progress" class="wizard-progress">ステップ 1 / 6</p>
         <p class="error" id="wizard-error" hidden></p>
 
         <div id="wizard-step-1">
@@ -164,17 +164,18 @@
         <div class="actions wizard-nav">
           <button type="button" class="btn btn-ghost" id="btn-wizard-back">ホームへ</button>
           <button type="button" class="btn btn-primary" id="btn-wizard-next">つぎへ</button>
+          <button type="button" class="btn btn-ghost" id="btn-wizard-remake" hidden>この条件でつくりなおす</button>
         </div>
       </section>
 
       <section class="stage" id="screen-text-review" hidden aria-label="文章の確認">
         <p class="wizard-progress">ステップ 5 / 6</p>
         <h2 class="step-title">文章の確認</h2>
-        <p class="note">右ページの文章です。直してから、登場人物の見た目を確認します。1ページあたり日本語400字までです。</p>
+        <p class="note">右ページの文章です。直してから、登場人物の見た目を確認します。1ページあたり日本語400字までです。ふりがなをつけた本では、朝（あさ）のように書いてください。</p>
         <p class="error" id="text-review-error" hidden></p>
         <div id="text-review-list" class="text-review-list"></div>
         <div class="actions wizard-nav">
-          <button type="button" class="btn btn-ghost" id="btn-text-review-home">ホームへ</button>
+          <button type="button" class="btn btn-ghost" id="btn-text-review-back">戻る</button>
           <button type="button" class="btn btn-primary" id="btn-text-review-paint">キャラクターを確認する</button>
         </div>
       </section>
@@ -182,11 +183,12 @@
       <section class="stage" id="screen-char-review" hidden aria-label="キャラクターデザインの確認">
         <p class="wizard-progress">ステップ 6 / 6</p>
         <h2 class="step-title">キャラクターデザインの確認</h2>
-        <p class="note">登場人物ごとに1枚です。本番の gemini-3.1-flash-image（1K）で、正面・後方・左・右・上・下の6角度を並べます。ここで確定したデザインは固有IDつきの参照画像として、各ページの插絵にそのまま渡します。追加指示を書いて描き直すか、このまま絵本をつくれます。</p>
+        <p class="note">登場人物ごとに1枚です。本番の gemini-3.1-flash-image（0.5K）で、正面・後方・左・右・上・下の6角度を並べます。ここで確定したデザインは固有IDつきの参照画像として、各ページの插絵にそのまま渡します。追加指示を書いて描き直すか、このまま絵本をつくれます。</p>
         <p class="error" id="char-review-error" hidden></p>
         <div id="char-review-list" class="char-review-list"></div>
         <div class="actions wizard-nav">
-          <button type="button" class="btn btn-ghost" id="btn-char-review-home">ホームへ</button>
+          <button type="button" class="btn btn-ghost" id="btn-char-review-back">戻る</button>
+          <button type="button" class="btn btn-ghost" id="btn-char-review-book" hidden>絵本にもどる</button>
           <button type="button" class="btn btn-primary" id="btn-char-review-paint">このデザインで絵本をつくる</button>
         </div>
       </section>
@@ -209,6 +211,7 @@
         </div>
         <div class="actions wizard-nav">
           <button type="button" class="btn btn-ghost" id="btn-book-home">ホームへ</button>
+          <button type="button" class="btn btn-ghost" id="btn-book-steps">工程に戻る</button>
           <button type="button" class="btn btn-ghost" id="btn-book-prev">まえ</button>
           <button type="button" class="btn btn-primary" id="btn-book-next">つぎ</button>
           <button type="button" class="btn btn-ghost" id="btn-redraw">この絵を描き直す</button>
@@ -318,14 +321,18 @@
       </fieldset>
       <fieldset class="settings-modes">
         <legend>画質（插絵・有料）</legend>
-        <p class="note">插絵モデルに Gemini API の無料枠はありません。キーがあっても課金が必要です。</p>
+        <p class="note">插絵モデルに Gemini API の無料枠はありません。キーがあっても課金が必要です。2.5 Flash-Lite は文章専用で、插絵APIはありません。近い插絵は gemini-2.5-flash-image を 0.5K（512）で呼びます。</p>
         <label class="check-label">
           <input type="radio" name="image-tier" value="flash" checked>
-          本番 gemini-3.1-flash-image（1K）
+          本番 gemini-3.1-flash-image（0.5K）
         </label>
         <label class="check-label">
           <input type="radio" name="image-tier" value="lite">
-          試し作り gemini-3.1-flash-lite-image（1K）
+          試し作り gemini-3.1-flash-lite-image（0.5K）
+        </label>
+        <label class="check-label">
+          <input type="radio" name="image-tier" value="lite-25">
+          試し作り gemini-2.5-flash-image（0.5K）
         </label>
       </fieldset>
       <fieldset class="settings-modes">

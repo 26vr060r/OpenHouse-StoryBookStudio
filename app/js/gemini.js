@@ -20,6 +20,12 @@
     "gemini-3.1-flash-lite-image",
     "gemini-3.1-flash-lite-image-preview"
   ];
+  var IMAGE_MODELS_FLASH25 = [
+    "gemini-2.5-flash-image",
+    "gemini-2.5-flash-lite-image",
+    "gemini-2.5-flash-image-preview"
+  ];
+  var IMAGE_TIER_IDS = { flash: true, lite: true, "lite-25": true };
   var SAFETY = [
     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
@@ -70,14 +76,15 @@
 
   function getImageTier() {
     try {
-      return window.localStorage.getItem(IMAGE_TIER) === "lite" ? "lite" : "flash";
+      var tier = window.localStorage.getItem(IMAGE_TIER) || "flash";
+      return IMAGE_TIER_IDS[tier] ? tier : "flash";
     } catch (err) {
       return "flash";
     }
   }
 
   function setImageTier(value) {
-    var tier = value === "lite" ? "lite" : "flash";
+    var tier = IMAGE_TIER_IDS[value] ? value : "flash";
     if (getImageTier() !== tier) cachedImageModel = null;
     try {
       window.localStorage.setItem(IMAGE_TIER, tier);
@@ -120,16 +127,31 @@
   }
 
   function imageModels() {
-    return getImageTier() === "lite" ? IMAGE_MODELS_LITE : IMAGE_MODELS_FLASH;
+    var tier = getImageTier();
+    if (tier === "lite") return IMAGE_MODELS_LITE;
+    if (tier === "lite-25") return IMAGE_MODELS_FLASH25;
+    return IMAGE_MODELS_FLASH;
   }
 
   function imageModelName() {
     return imageModels()[0];
   }
 
+  function imageSize() {
+    return "512";
+  }
+
+  function imageSizeLabel() {
+    return "0.5K";
+  }
+
+  function pageImageConfig() {
+    return { aspectRatio: "3:4", imageSize: imageSize() };
+  }
+
   function imageTierLabel() {
-    var role = getImageTier() === "lite" ? "試し作り" : "本番";
-    return role + " " + imageModelName() + "（1K）";
+    var role = getImageTier() === "flash" ? "本番" : "試し作り";
+    return role + " " + imageModelName() + "（" + imageSizeLabel() + "）";
   }
 
   function modeLabel() {
@@ -332,7 +354,7 @@
         contents: [{ role: "user", parts: parts }],
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: opts.imageConfig || { aspectRatio: "3:4", imageSize: "1K" }
+          imageConfig: opts.imageConfig || pageImageConfig()
         },
         safetySettings: SAFETY
       };
@@ -423,8 +445,9 @@
   }
 
   function parseLine(line) {
+    if (SBS.Story && SBS.Story.parsePlainLine) return SBS.Story.parsePlainLine(line);
     var tokens = [];
-    var re = /([一-龯々〆ヵヶ]+)（([ぁ-ゖー]+)）/g;
+    var re = /([一-龯々〆ヵヶ]+)[ \u3000]*[（(]([ぁ-ゖァ-ヶー]+)[）)]/g;
     var last = 0;
     var match;
     while ((match = re.exec(line))) {
@@ -581,7 +604,7 @@
       models: IMAGE_MODELS_FLASH,
       cacheKey: "sheet",
       crop: false,
-      imageConfig: { aspectRatio: "16:9", imageSize: "1K" }
+      imageConfig: { aspectRatio: "16:9", imageSize: imageSize() }
     }).then(function (url) {
       if (url) return store(url, "gemini-flash");
       if (SBS.DemoArt && SBS.DemoArt.paintCharacterSheet) {
@@ -947,6 +970,8 @@
     textModelName: textModelName,
     textModelLabel: textModelLabel,
     imageModelName: imageModelName,
+    imageSize: imageSize,
+    imageSizeLabel: imageSizeLabel,
     imageTierLabel: imageTierLabel,
     modeLabel: modeLabel,
     canCallNetwork: canCallNetwork,

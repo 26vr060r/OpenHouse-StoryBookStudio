@@ -26,6 +26,7 @@ Constraints:
 - Do not print the character list. Do not write a recap of all pages.
 - Do not include real addresses or a real child's full name.
 - Japanese body text only. No English. Dialogue and 擬音 are welcome.{{RUBY_RULE}}
+- Follow SENTENCE_RULE for 漢字 vs ひらがな. If Furigana is yes, keep the allowed 漢字 and write every one as 漢字（ひらがな）. Never leave 漢字 bare.
 
 Old placeholder (IGNORE; do not keep or polish this):
 {{CURRENT_TEXT}}
