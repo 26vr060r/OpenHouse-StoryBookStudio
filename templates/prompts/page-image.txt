@@ -4,16 +4,22 @@
 
 {{CHARACTER_LOCK}}
 
+{{CHARACTER_REFS}}
+
 {{WORLD_LOCK}}
 
-This spread only (p{{PAGE}} / {{SPREAD_TOTAL}}, scene {{SCENE}}, role {{ROLE}}):
-{{SCENE_DIRECTION}}
-Characters in frame: {{WHO}}
+Scene {{PAGE}} of {{SPREAD_TOTAL}} (beat {{SCENE}}, role {{ROLE}}).
+Paint this story (Japanese meaning):
+{{STORY_TEXT}}
+Beat hint: {{SCENE_DIRECTION}}
+People in the scene: {{WHO}}
 Composition: {{COMPOSITION}}
 
 Technical:
-- portrait 3:4 (or 4:5), high resolution, left page of a picture book
-- no text in the image
-- follow the character reference sheet and the character lock verbatim
+- portrait 3:4, high resolution, one scene, edge to edge
+- no text
+- attached images are identity locks by ID; do not invent a new design
+- place only the IDs listed in People in the scene
+- keep original character designs; do not snap to a famous look
 
 {{NEGATIVE}}

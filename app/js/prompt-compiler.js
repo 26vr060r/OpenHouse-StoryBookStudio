@@ -204,11 +204,13 @@
   };
 
   var SENTENCE_RULES = {
-    "age-2-3": "1 to 2 very short sentences. Repeat simple words. Right page only.",
-    "age-4-6": "2 to 4 short sentences that fit the right page.",
-    "age-7-9": "3 to 5 sentences. Still spoken aloud, no long clauses.",
-    "with-adults": "2 to 5 sentences. A little more vocabulary is allowed."
+    "age-2-3": "Very short spoken Japanese. Repeat simple words. One 擬音 is OK. Follow THIS PAGE's target length. For a 24-page book, opening pages stay tiny, turning pages a little longer. Never stop mid-sentence.",
+    "age-4-6": "Simple spoken Japanese. Short dialogue and 擬音. Follow THIS PAGE's target length. For a 24-page kishotenketsu book, opening ~50-80, turning ~90-160. Do not pad.",
+    "age-7-9": "Spoken Japanese for 7-9. Scene + 擬音 + dialogue + a small fail, then recovery. Follow THIS PAGE's target length. 24-page kishotenketsu benchmark: opening 50-85, incident 150-200, fail/turn 180-250, short link 70-110, ending 140-200. Do not pad past the range.",
+    "with-adults": "Richer spoken Japanese, still readable aloud. Humor and a leftover lesson. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.2 times the words. Do not pad."
   };
+
+  var FULL_BLEED = "Edge-to-edge scene. Fill every pixel of the 3:4 canvas. Large readable figures. Environment continues off every edge. Never a book, never a page, never a white frame.";
 
   function pad2(n) {
     return n < 10 ? "0" + n : String(n);
@@ -285,6 +287,14 @@
     value = value.replace(/```/g, " ");
     value = value.replace(/\s+/g, " ").trim();
     return value.slice(0, maxLen || 200);
+  }
+
+  function sanitizeBrief(text) {
+    var value = String(text || "");
+    value = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+    value = value.replace(/ignore\s+(all\s+)?(previous|above)\s+instructions?/gi, " ");
+    value = value.replace(/system\s*:/gi, " ");
+    return value.replace(/\n{3,}/g, "\n\n").trim().slice(0, 4000);
   }
 
   function fill(template, vars) {
@@ -366,16 +376,25 @@
   function whoFor(scene, names, bible) {
     var chars = (bible && bible.characters) || [];
     var labels = chars.map(function (ch) {
-      return ch.displayName + " (" + (ch.roleLabel || ch.role) + ")";
+      return (ch.displayName || "character") + " [ID " + ch.id + "] (" + (ch.roleLabel || ch.role) + ")";
     });
     if (/meet|help|together|share|bond/.test(scene) && names.friend) return labels.join(", ");
     if (chars.length) {
       var hero = chars.filter(function (ch) { return ch.role === "hero"; })[0];
       if (/cover|coda|home|win|crisis|go|try|fail|think|path|once|again|day|morning|spark/.test(scene)) {
-        return hero ? hero.displayName + " (hero)" : names.hero;
+        return hero ? hero.displayName + " [ID " + hero.id + "] (hero)" : names.hero;
       }
     }
     return labels.join(", ") || names.hero;
+  }
+
+  function pagePlanOf(spread) {
+    var plan = (spread && spread.plan) || {};
+    return {
+      summary: plan.summary || "",
+      who: plan.who || "",
+      length: plan.length || "80-240"
+    };
   }
 
   function extraPalette(ch) {
@@ -385,28 +404,78 @@
     return bits.length ? ", " + bits.join(", ") : "";
   }
 
-  function characterBlocks(bible) {
+  function characterBlock(ch) {
     var T = SBS.PromptTemplates;
-    return ((bible && bible.characters) || []).map(function (ch) {
-      return fill(T.characterBlock, {
-        CHAR_ID: ch.id,
-        DISPLAY_NAME: sanitize(ch.displayName, 20),
-        ROLE: ch.roleLabel || ch.role || "",
-        KIND: ch.kindLabel || ch.kind || "",
-        PERSONALITY: (SBS.personalityLine && SBS.personalityLine(ch)) || "(unspecified)",
-        HAIR: ch.palette.hair,
-        SKIN: ch.palette.skin,
-        EYES: ch.palette.eyes,
-        CLOTHES: ch.palette.clothesPrimary,
-        ACCENT: ch.palette.clothesAccent,
-        EXTRA_PALETTE: extraPalette(ch),
-        HEAD_TO_BODY: ch.body.headToBody,
-        HEIGHT_UNITS: String(ch.body.heightUnits),
-        BUILD: ch.body.build,
-        MUST_KEEP: (ch.mustKeep || []).join("; "),
-        MUST_NEVER: (ch.mustNever || []).join("; ")
-      });
-    }).join("\n");
+    if (!ch) return "";
+    return fill(T.characterBlock, {
+      CHAR_ID: ch.id,
+      DISPLAY_NAME: sanitize(ch.promptName || ch.displayName, 80),
+      ROLE: ch.roleLabel || ch.role || "",
+      KIND: ch.kindLabel || ch.kind || "",
+      PERSONALITY: (function () {
+        var line = (SBS.personalityLine && SBS.personalityLine(ch)) || "(unspecified)";
+        return (SBS.Originality && SBS.Originality.rewrite) ? SBS.Originality.rewrite(line) : line;
+      })(),
+      HAIR: ch.palette.hair,
+      SKIN: ch.palette.skin,
+      EYES: ch.palette.eyes,
+      CLOTHES: ch.palette.clothesPrimary,
+      ACCENT: ch.palette.clothesAccent,
+      EXTRA_PALETTE: extraPalette(ch),
+      HEAD_TO_BODY: ch.body.headToBody,
+      HEIGHT_UNITS: String(ch.body.heightUnits),
+      BUILD: ch.body.build,
+      MUST_KEEP: (ch.mustKeep || []).join("; "),
+      MUST_NEVER: (ch.mustNever || []).join("; ")
+    });
+  }
+
+  function characterBlocks(bible) {
+    return ((bible && bible.characters) || []).map(characterBlock).join("\n");
+  }
+
+  function characterRefLines(book) {
+    var chars = (book && book.bible && book.bible.characters) || [];
+    var sheets = (book && book.characterSheets) || [];
+    var lines = ["Character identity map (do not invent a new design for these IDs):"];
+    var n = 0;
+    var i;
+    var cap = (SBS.LIMITS && SBS.LIMITS.maxCharacters) || 5;
+    for (i = 0; i < chars.length && n < cap; i += 1) {
+      if (!sheets[i] || !sheets[i].url) continue;
+      n += 1;
+      lines.push(
+        "Attached image " + n + " is identity ID " + chars[i].id +
+        " named \"" + sanitize(chars[i].promptName || chars[i].displayName, 40) +
+        "\" (role: " + (chars[i].roleLabel || chars[i].role || "") +
+        "). Copy this character exactly. Same ID means the same face, hair, clothes, species, and height."
+      );
+    }
+    if (!n) {
+      return "No attached character identity images. Follow the character lock text.";
+    }
+    lines.push("Only place IDs listed in People in the scene. Do not redesign any ID.");
+    return lines.join("\n");
+  }
+
+  function characterTurnaround(book, charIndex, extraNote) {
+    var T = SBS.PromptTemplates;
+    var bible = (book && book.bible) || {};
+    var ch = (bible.characters || [])[charIndex];
+    if (!T || !T.characterTurnaround || !ch) return "";
+    var lock = fill(T.characterLock, {
+      ORIGINALITY_LOCK: (SBS.Originality && SBS.Originality.imageLock) ||
+        "Original characters only. Market-similar is OK. Exact famous characters are not.",
+      CHARACTER_BLOCKS: characterBlock(ch)
+    });
+    var note = sanitize(extraNote, 240) || "(none)";
+    if (SBS.Originality && SBS.Originality.rewrite) note = SBS.Originality.rewrite(note) || note;
+    return fill(T.characterTurnaround, {
+      STYLE_LOCK: (book.prompts && book.prompts.styleLock) || "",
+      ONE_CHARACTER_LOCK: lock,
+      EXTRA_NOTE: note,
+      NEGATIVE: (book.prompts && book.prompts.negative) || ""
+    });
   }
 
   function buildLocks(intent, bible) {
@@ -415,6 +484,8 @@
     var world = bible.world || {};
     var settingId = (intent.setting && intent.setting.preset) || "custom";
     var settingLabel = SBS.labelOf(SBS.PRESETS.settings, settingId) || sanitize(intent.setting && intent.setting.freeText, 80) || settingId;
+    var originalityLock = (SBS.Originality && SBS.Originality.imageLock) ||
+      "Original characters only. Market-similar is OK. Exact famous characters are not.";
     var styleLock = fill(T.styleLock, {
       MEDIUM: style.medium || "watercolor",
       PALETTE_TEMP: style.paletteTemp || "warm-soft",
@@ -422,6 +493,7 @@
       LIGHTING: style.lighting || "diffused daylight"
     });
     var characterLock = fill(T.characterLock, {
+      ORIGINALITY_LOCK: originalityLock,
       CHARACTER_BLOCKS: characterBlocks(bible) || "(no characters)"
     });
     var worldLock = fill(T.worldLock, {
@@ -454,43 +526,56 @@
     var settingLabel = SBS.labelOf(SBS.PRESETS.settings, intent.setting && intent.setting.preset) || sanitize(intent.setting && intent.setting.freeText, 80) || "まち";
     var audienceLabel = SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience;
     var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
-    var structureLabel = SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || sanitize(structurePick.freeText, 80) || structurePick.preset || "起承転結";
+    var structureLabel = structurePick.freeText
+      ? sanitize(structurePick.freeText, 800)
+      : (SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || structurePick.preset || "起承転結");
     var charactersLine = ((bible && bible.characters) || []).map(function (ch) {
       var bits = [sanitize(ch.displayName, 20) || "(unnamed)"];
       if (ch.roleLabel || ch.role) bits.push("role: " + (ch.roleLabel || ch.role));
       if (ch.kindLabel || ch.kind) bits.push("kind: " + (ch.kindLabel || ch.kind));
       var pers = SBS.personalityLine ? SBS.personalityLine(ch) : "";
       if (pers) bits.push("personality: " + pers);
+      if (ch.originalityHit) bits.push("original design for this book, not a famous character");
       return bits.join(", ");
     }).join("; ") || "(no characters)";
+    var originalityLock = (SBS.Originality && SBS.Originality.imageLock) ||
+      "Original characters only. Market-similar is OK. Exact famous characters are not.";
     var shared = {
-      IMAGE_SYSTEM: T.imageSystem,
+      IMAGE_SYSTEM: fill(T.imageSystem, { ORIGINALITY_LOCK: originalityLock }),
       STORY_SYSTEM: T.storySystem,
       STYLE_LOCK: locks.styleLock,
       CHARACTER_LOCK: locks.characterLock,
       WORLD_LOCK: locks.worldLock,
       NEGATIVE: locks.negative
     };
-    var characterSheet = fill(T.characterSheet, shared);
-    var pages = (book.spreads || []).map(function (spread) {
+    function fillPageImage(spread, storyText) {
       var scene = spread.scene || "day";
       var copy = SCENE_COPY[scene] || SCENE_COPY.day;
       var page = pageToken(spread.n);
-      var currentText = SBS.Story.plainText(spread.paragraphs, names);
-      var image = fill(T.pageImage, {
+      return fill(T.pageImage, {
         IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
         STYLE_LOCK: shared.STYLE_LOCK,
         CHARACTER_LOCK: shared.CHARACTER_LOCK,
+        CHARACTER_REFS: characterRefLines(book),
         WORLD_LOCK: shared.WORLD_LOCK,
         NEGATIVE: shared.NEGATIVE,
         PAGE: page.slice(1),
         SPREAD_TOTAL: String((book.spreads || []).length || 12),
         SCENE: scene,
         ROLE: spread.role || "story",
-        SCENE_DIRECTION: copy.direction,
-        WHO: whoFor(scene, names, bible),
-        COMPOSITION: copy.composition
+        SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
+        STORY_TEXT: storyText || pagePlanOf(spread).summary || copy.direction,
+        WHO: pagePlanOf(spread).who || whoFor(scene, names, bible),
+        COMPOSITION: FULL_BLEED
       });
+    }
+    var characterSheet = fill(T.characterSheet, shared);
+    var pages = (book.spreads || []).map(function (spread) {
+      var scene = spread.scene || "day";
+      var copy = SCENE_COPY[scene] || SCENE_COPY.day;
+      var page = pageToken(spread.n);
+      var currentText = SBS.Story.plainText(spread.paragraphs, names);
+      var image = fillPageImage(spread, currentText);
       var text = fill(T.pageText, {
         STORY_SYSTEM: shared.STORY_SYSTEM,
         PAGE: page.slice(1),
@@ -502,6 +587,8 @@
         AUDIENCE_LABEL: audienceLabel,
         STRUCTURE: structureLabel,
         SCENE: scene,
+        PAGE_PLAN: pagePlanOf(spread).summary || copy.direction,
+        PAGE_WHO: pagePlanOf(spread).who || whoFor(scene, names, bible),
         HERO: names.hero,
         HERO_PERSONALITY: (function () {
           var heroCh = ((bible && bible.characters) || []).filter(function (c) { return c.role === "hero"; })[0];
@@ -512,9 +599,13 @@
         TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
         FURIGANA: book.furigana ? "yes" : "no",
         SENTENCE_RULE: SENTENCE_RULES[intent.audience] || SENTENCE_RULES["age-4-6"],
-        RUBY_RULE: book.furigana ? " If helpful, mark ruby as 漢字（かんじ）." : " Do not add furigana.",
-        SCENE_DIRECTION: copy.direction,
-        CURRENT_TEXT: currentText || "(empty)"
+        LENGTH_RULE: pagePlanOf(spread).length + " Japanese characters. Cover may be 10-60. Do not force 180.",
+        RUBY_RULE: book.furigana
+          ? " Add 漢字（かんじ） only on hard words. Do not ruby every word."
+          : " Do not add furigana.",
+        BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
+        SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
+        CURRENT_TEXT: currentText || "(empty placeholder)"
       });
       return {
         n: spread.n,
@@ -523,7 +614,7 @@
         role: spread.role,
         image: image,
         text: text,
-        summary: copy.direction
+        summary: pagePlanOf(spread).summary || copy.direction
       };
     });
 
@@ -533,7 +624,11 @@
       { path: dir + id.bookId + ".character-lock.txt", data: locks.characterLock },
       { path: dir + id.bookId + ".world-lock.txt", data: locks.worldLock },
       { path: dir + id.bookId + ".negative.txt", data: locks.negative },
-      { path: dir + id.bookId + "_character-sheet.prompt.txt", data: characterSheet }
+      { path: dir + id.bookId + "_character-sheet.prompt.txt", data: characterSheet },
+      {
+        path: dir + id.bookId + ".brief.md",
+        data: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || "")
+      }
     ];
     pages.forEach(function (p) {
       files.push({ path: dir + id.bookId + "_" + p.page + ".image.prompt.txt", data: p.image });
@@ -561,7 +656,9 @@
       title: book.title,
       generator: (keepId && book.generator) || "demo",
       models: {
-        text: "gemini-2.5-flash",
+        text: (SBS.Gemini && SBS.Gemini.textModelName)
+          ? SBS.Gemini.textModelName()
+          : "gemini-3.5-flash",
         image: (SBS.Gemini && SBS.Gemini.imageModelName)
           ? SBS.Gemini.imageModelName()
           : "gemini-3.1-flash-image"
@@ -592,6 +689,111 @@
     return book.prompts;
   }
 
+  function refreshPageImage(book, index) {
+    if (!book || !book.prompts || !book.prompts.pages || !book.spreads) return "";
+    var spread = book.spreads[index];
+    var page = book.prompts.pages[index];
+    if (!spread || !page) return "";
+    var T = SBS.PromptTemplates;
+    var intent = book.intent || {};
+    var bible = book.bible || {};
+    var names = namesFrom(intent, bible);
+    var originalityLock = (SBS.Originality && SBS.Originality.imageLock) ||
+      "Original characters only. Market-similar is OK. Exact famous characters are not.";
+    var shared = {
+      IMAGE_SYSTEM: fill(T.imageSystem, { ORIGINALITY_LOCK: originalityLock }),
+      STYLE_LOCK: book.prompts.styleLock || "",
+      CHARACTER_LOCK: book.prompts.characterLock || "",
+      WORLD_LOCK: book.prompts.worldLock || "",
+      NEGATIVE: book.prompts.negative || ""
+    };
+    var scene = spread.scene || "day";
+    var copy = SCENE_COPY[scene] || SCENE_COPY.day;
+    var storyText = (SBS.Story && SBS.Story.plainText)
+      ? SBS.Story.plainText(spread.paragraphs, names)
+      : "";
+    page.image = fill(T.pageImage, {
+      IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
+      STYLE_LOCK: shared.STYLE_LOCK,
+      CHARACTER_LOCK: shared.CHARACTER_LOCK,
+      CHARACTER_REFS: characterRefLines(book),
+      WORLD_LOCK: shared.WORLD_LOCK,
+      NEGATIVE: shared.NEGATIVE,
+      PAGE: pageToken(spread.n).slice(1),
+      SPREAD_TOTAL: String((book.spreads || []).length || 12),
+      SCENE: scene,
+      ROLE: spread.role || "story",
+      SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
+      STORY_TEXT: storyText || pagePlanOf(spread).summary || copy.direction,
+      WHO: pagePlanOf(spread).who || whoFor(scene, names, bible),
+      COMPOSITION: FULL_BLEED
+    });
+    return page.image;
+  }
+
+  function refreshPageText(book, index) {
+    if (!book || !book.prompts || !book.prompts.pages || !book.spreads) return "";
+    var spread = book.spreads[index];
+    var page = book.prompts.pages[index];
+    if (!spread || !page) return "";
+    var T = SBS.PromptTemplates;
+    var intent = book.intent || {};
+    var bible = book.bible || {};
+    var names = namesFrom(intent, bible);
+    var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: "", freeText: "" };
+    var structureLabel = structurePick.freeText
+      ? sanitize(structurePick.freeText, 800)
+      : (SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || "起承転結");
+    var charactersLine = ((bible.characters) || []).map(function (ch) {
+      var bits = [sanitize(ch.displayName, 20) || "(unnamed)"];
+      if (ch.roleLabel || ch.role) bits.push("role: " + (ch.roleLabel || ch.role));
+      return bits.join(", ");
+    }).join("; ");
+    var copy = SCENE_COPY[spread.scene] || SCENE_COPY.day;
+    var plan = pagePlanOf(spread);
+    page.text = fill(T.pageText, {
+      STORY_SYSTEM: T.storySystem,
+      PAGE: pageToken(spread.n).slice(1),
+      SPREAD_TOTAL: String((book.spreads || []).length || 12),
+      TITLE: sanitize(intent.title || book.title, 40),
+      THEME: SBS.labelOf(SBS.PRESETS.themes, intent.theme && intent.theme.preset) ||
+        sanitize(intent.theme && intent.theme.freeText, 80) || "たいせつなこと",
+      SETTING: SBS.labelOf(SBS.PRESETS.settings, intent.setting && intent.setting.preset) ||
+        sanitize(intent.setting && intent.setting.freeText, 80) || "まち",
+      AUDIENCE: intent.audience || "",
+      AUDIENCE_LABEL: SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience,
+      STRUCTURE: structureLabel,
+      PAGE_PLAN: plan.summary || copy.direction,
+      PAGE_WHO: plan.who || whoFor(spread.scene, names, bible),
+      HERO: names.hero,
+      HERO_PERSONALITY: (function () {
+        var heroCh = (bible.characters || []).filter(function (c) { return c.role === "hero"; })[0];
+        return (SBS.personalityLine && heroCh && SBS.personalityLine(heroCh)) || "(unspecified)";
+      }()),
+      CHARACTERS_LINE: charactersLine,
+      FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
+      TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
+      FURIGANA: book.furigana ? "yes" : "no",
+      SENTENCE_RULE: SENTENCE_RULES[intent.audience] || SENTENCE_RULES["age-4-6"],
+      LENGTH_RULE: plan.length + " Japanese characters. Cover may be 10-60. Do not force 180.",
+      RUBY_RULE: book.furigana
+        ? " Add 漢字（かんじ） only on hard words. Do not ruby every word."
+        : " Do not add furigana.",
+      BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
+      CURRENT_TEXT: "(empty placeholder)"
+    });
+    page.summary = plan.summary || page.summary;
+    return page.text;
+  }
+
+  function refreshAllPageText(book) {
+    if (!book || !book.spreads) return;
+    if (SBS.Story && SBS.Story.attachPlans) SBS.Story.attachPlans(book);
+    book.spreads.forEach(function (_, i) {
+      refreshPageText(book, i);
+    });
+  }
+
   function downloadZip(book) {
     var pack = book && book.prompts;
     if (!pack || !pack.files || !pack.files.length) return false;
@@ -603,6 +805,11 @@
   SBS.PromptCompiler = {
     issueId: issueId,
     compile: compile,
+    refreshPageImage: refreshPageImage,
+    refreshPageText: refreshPageText,
+    refreshAllPageText: refreshAllPageText,
+    characterTurnaround: characterTurnaround,
+    characterRefLines: characterRefLines,
     downloadZip: downloadZip
   };
 

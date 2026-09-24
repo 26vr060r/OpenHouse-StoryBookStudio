@@ -445,6 +445,54 @@ textarea::placeholder {
   margin: 0;
 }
 
+.brief-md {
+  margin-top: 20px;
+}
+
+.brief-md-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.brief-md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.brief-md-block {
+  margin: 0;
+  padding: 0;
+  background: #2b211c;
+  color: #f4ead8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.brief-md-block code {
+  display: block;
+}
+
+.brief-md-editor {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  resize: vertical;
+  background: transparent;
+  color: inherit;
+  font: 0.85rem/1.65 ui-monospace, Consolas, "Noto Sans JP", monospace;
+  box-sizing: border-box;
+}
+
+.brief-md-editor:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
 .studio-json {
   margin-top: 16px;
   padding: 12px;
@@ -561,8 +609,76 @@ textarea::placeholder {
 }
 
 .right-page {
-  line-height: 1.9;
+  line-height: 1.85;
+  font-size: 1.05rem;
+  overflow: auto;
+  max-height: 520px;
+}
+
+.text-review-list {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0 8px;
+}
+
+.text-review-item textarea {
+  display: block;
+  width: 100%;
+  min-height: 8em;
+  margin-top: 6px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  font: 1rem/1.7 "Noto Serif JP", serif;
+}
+
+.text-review-count {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.char-review-list {
+  display: grid;
+  gap: 20px;
+  margin: 16px 0 8px;
+}
+
+.char-review-card {
+  padding: 16px;
+  border: 1px solid #eadfce;
+  border-radius: 12px;
+  background: #fffdf8;
+}
+
+.char-review-card h3 {
+  margin: 0 0 10px;
   font-size: 1.15rem;
+}
+
+.char-review-card img {
+  display: block;
+  width: 100%;
+  max-width: 760px;
+  height: auto;
+  background: #efe3c8;
+  border-radius: 8px;
+}
+
+.char-review-card textarea {
+  min-height: 4.5em;
+}
+
+.char-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.char-review-busy,
+.char-review-empty {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
 }
 
 .right-page.tate {

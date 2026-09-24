@@ -16,5 +16,6 @@
 | `world-lock.txt` | 地面・舞台 |
 | `negative.txt` | 禁止事項と注入無効化 |
 | `character-sheet.txt` | 参照シート用 |
+| `character-turnaround.txt` | 確認用・1人6角度 |
 | `page-image.txt` | 見開きごとの插絵 |
 | `page-text.txt` | 見開きごとの文章 |

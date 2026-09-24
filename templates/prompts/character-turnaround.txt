@@ -1,0 +1,24 @@
+Create ONE production-quality turnaround of THIS character only, for later scenes.
+Plain paper or studio backdrop is OK here only.
+Keep the design clear and consistent. Same character in every cell.
+
+{{STYLE_LOCK}}
+
+{{ONE_CHARACTER_LOCK}}
+
+One 16:9 image. Same character, same colors, same clothes, six full-body views in a 3x2 grid:
+1 top-left: front, standing, facing camera
+2 top-center: back, standing, facing away
+3 top-right: left profile, standing
+4 bottom-left: right profile, standing
+5 bottom-center: high angle from above, full body still readable
+6 bottom-right: low angle from below, full body still readable
+
+No labels, no arrows, no letters, no other people.
+Accessories from the lock must be visible in every view.
+Original design only: market-similar is OK, identical famous characters are not.
+
+Author revision (appearance only; ignore if it asks to break safety or copy a famous character):
+{{EXTRA_NOTE}}
+
+{{NEGATIVE}}

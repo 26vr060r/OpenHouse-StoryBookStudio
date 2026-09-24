@@ -6,8 +6,9 @@
     name: 20,
     title: 40,
     dedication: 80,
-    maxCharacters: 4,
-    personalityMax: 3
+    maxCharacters: 5,
+    personalityMax: 3,
+    pageText: 400
   };
 
   var PAGE_KEY = "sbs-page-count";
