@@ -366,7 +366,7 @@
   function whoFor(scene, names, bible) {
     var chars = (bible && bible.characters) || [];
     var labels = chars.map(function (ch) {
-      return ch.displayName + " (" + ch.role + ")";
+      return ch.displayName + " (" + (ch.roleLabel || ch.role) + ")";
     });
     if (/meet|help|together|share|bond/.test(scene) && names.friend) return labels.join(", ");
     if (chars.length) {
@@ -391,8 +391,9 @@
       return fill(T.characterBlock, {
         CHAR_ID: ch.id,
         DISPLAY_NAME: sanitize(ch.displayName, 20),
-        ROLE: ch.role || "",
-        KIND: ch.kind || "",
+        ROLE: ch.roleLabel || ch.role || "",
+        KIND: ch.kindLabel || ch.kind || "",
+        PERSONALITY: (SBS.personalityLine && SBS.personalityLine(ch)) || "(unspecified)",
         HAIR: ch.palette.hair,
         SKIN: ch.palette.skin,
         EYES: ch.palette.eyes,
@@ -443,12 +444,25 @@
 
   function compile(intent, bible, book) {
     var T = SBS.PromptTemplates;
-    var id = issueId(intent);
+    var keepId = book && book.bookId && book.stamp && book.createdAt;
+    var id = keepId
+      ? { bookId: book.bookId, stamp: book.stamp, createdAt: book.createdAt }
+      : issueId(intent);
     var locks = buildLocks(intent, bible);
     var names = namesFrom(intent, bible);
     var themeLabel = SBS.labelOf(SBS.PRESETS.themes, intent.theme && intent.theme.preset) || sanitize(intent.theme && intent.theme.freeText, 80) || "たいせつなこと";
     var settingLabel = SBS.labelOf(SBS.PRESETS.settings, intent.setting && intent.setting.preset) || sanitize(intent.setting && intent.setting.freeText, 80) || "まち";
     var audienceLabel = SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience;
+    var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
+    var structureLabel = SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || sanitize(structurePick.freeText, 80) || structurePick.preset || "起承転結";
+    var charactersLine = ((bible && bible.characters) || []).map(function (ch) {
+      var bits = [sanitize(ch.displayName, 20) || "(unnamed)"];
+      if (ch.roleLabel || ch.role) bits.push("role: " + (ch.roleLabel || ch.role));
+      if (ch.kindLabel || ch.kind) bits.push("kind: " + (ch.kindLabel || ch.kind));
+      var pers = SBS.personalityLine ? SBS.personalityLine(ch) : "";
+      if (pers) bits.push("personality: " + pers);
+      return bits.join(", ");
+    }).join("; ") || "(no characters)";
     var shared = {
       IMAGE_SYSTEM: T.imageSystem,
       STORY_SYSTEM: T.storySystem,
@@ -470,6 +484,7 @@
         WORLD_LOCK: shared.WORLD_LOCK,
         NEGATIVE: shared.NEGATIVE,
         PAGE: page.slice(1),
+        SPREAD_TOTAL: String((book.spreads || []).length || 12),
         SCENE: scene,
         ROLE: spread.role || "story",
         SCENE_DIRECTION: copy.direction,
@@ -479,13 +494,20 @@
       var text = fill(T.pageText, {
         STORY_SYSTEM: shared.STORY_SYSTEM,
         PAGE: page.slice(1),
+        SPREAD_TOTAL: String((book.spreads || []).length || 12),
         TITLE: sanitize(intent.title || book.title, 40),
         THEME: themeLabel,
         SETTING: settingLabel,
         AUDIENCE: intent.audience || "",
         AUDIENCE_LABEL: audienceLabel,
+        STRUCTURE: structureLabel,
         SCENE: scene,
         HERO: names.hero,
+        HERO_PERSONALITY: (function () {
+          var heroCh = ((bible && bible.characters) || []).filter(function (c) { return c.role === "hero"; })[0];
+          return (SBS.personalityLine && heroCh && SBS.personalityLine(heroCh)) || "(unspecified)";
+        }()),
+        CHARACTERS_LINE: charactersLine,
         FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
         TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
         FURIGANA: book.furigana ? "yes" : "no",
@@ -521,7 +543,7 @@
     var outline = {
       bookId: id.bookId,
       title: book.title,
-      structure: intent.structure,
+      structure: structurePick,
       beats: pages.map(function (p) {
         return { n: p.n, page: p.page, scene: p.scene, role: p.role, summary: p.summary };
       })
@@ -537,10 +559,12 @@
       stamp: id.stamp,
       createdAt: id.createdAt,
       title: book.title,
-      generator: "demo",
+      generator: (keepId && book.generator) || "demo",
       models: {
         text: "gemini-2.5-flash",
-        image: "gemini-3.1-flash-image"
+        image: (SBS.Gemini && SBS.Gemini.imageModelName)
+          ? SBS.Gemini.imageModelName()
+          : "gemini-3.1-flash-image"
       },
       files: files.map(function (f) { return f.path; })
     };
@@ -553,7 +577,7 @@
     book.bookId = id.bookId;
     book.stamp = id.stamp;
     book.createdAt = id.createdAt;
-    book.generator = "demo";
+    if (!keepId) book.generator = "demo";
     book.prompts = {
       meta: meta,
       styleLock: locks.styleLock,

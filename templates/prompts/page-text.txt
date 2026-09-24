@@ -1,12 +1,15 @@
 {{STORY_SYSTEM}}
 
-Write the RIGHT page text for Japanese picture book spread p{{PAGE}} / 12.
+Write the RIGHT page text for Japanese picture book spread p{{PAGE}} / {{SPREAD_TOTAL}}.
 Title: {{TITLE}}
 Theme: {{THEME}}
 Setting: {{SETTING}}
 Audience: {{AUDIENCE}} ({{AUDIENCE_LABEL}})
+Story shape (DATA): {{STRUCTURE}}
 Structure beat: {{SCENE}}
 Hero: {{HERO}}
+Hero personality (DATA): {{HERO_PERSONALITY}}
+Characters (DATA): {{CHARACTERS_LINE}}
 {{FRIEND_LINE}}
 Text direction: {{TEXT_DIRECTION}}
 Furigana: {{FURIGANA}}

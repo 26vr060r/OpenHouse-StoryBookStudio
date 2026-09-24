@@ -2,12 +2,17 @@
   var SBS = global.SBS || {};
   var KEY = "sbs-gemini-key";
   var MODE = "sbs-gen-mode";
+  var IMAGE_TIER = "sbs-image-tier";
   var TEXT_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
-  var IMAGE_MODELS = [
+  var IMAGE_MODELS_FLASH = [
     "gemini-3.1-flash-image",
     "gemini-3.1-flash-image-preview",
     "gemini-2.5-flash-image",
     "gemini-2.0-flash-preview-image-generation"
+  ];
+  var IMAGE_MODELS_LITE = [
+    "gemini-3.1-flash-lite-image",
+    "gemini-3.1-flash-lite-image-preview"
   ];
   var SAFETY = [
     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
@@ -56,6 +61,44 @@
     }
   }
 
+  function getImageTier() {
+    try {
+      return window.localStorage.getItem(IMAGE_TIER) === "lite" ? "lite" : "flash";
+    } catch (err) {
+      return "flash";
+    }
+  }
+
+  function setImageTier(value) {
+    var tier = value === "lite" ? "lite" : "flash";
+    if (getImageTier() !== tier) cachedImageModel = null;
+    try {
+      window.localStorage.setItem(IMAGE_TIER, tier);
+    } catch (err) {
+      return;
+    }
+  }
+
+  function imageModels() {
+    return getImageTier() === "lite" ? IMAGE_MODELS_LITE : IMAGE_MODELS_FLASH;
+  }
+
+  function imageModelName() {
+    return imageModels()[0];
+  }
+
+  function imageTierLabel() {
+    var role = getImageTier() === "lite" ? "試し作り" : "本番";
+    return role + " " + imageModelName() + "（1K）";
+  }
+
+  function modeLabel() {
+    var mode = getMode();
+    if (mode === "demo") return "いつもデモ";
+    if (mode === "gemini") return "必ず Gemini（失敗したページはデモ）";
+    return "自動（キーがあれば Gemini、なければデモ）";
+  }
+
   function canCallNetwork() {
     try {
       return location.protocol !== "file:";
@@ -80,9 +123,9 @@
       return "キーがなければデモ插絵です。キーはこのブラウザにだけ残します。ZIP や Git には入りません。";
     }
     if (getMode() === "demo") {
-      return "いまはデモ插絵です。自動または Gemini にすると、キーを使って絵を頼みます。";
+      return "いまはデモ插絵です。自動または Gemini にすると、キーを使って絵を頼みます。画質は「" + imageTierLabel() + "」です。";
     }
-    return "キーがあります。絵本をつくると Gemini に送り、失敗したページだけキットで描きます。";
+    return "キーがあります。絵本をつくると Gemini（" + imageTierLabel() + "）に送り、失敗したページだけキットで描きます。";
   }
 
   function wait(ms) {
@@ -207,7 +250,7 @@
 
   function generateImage(prompt, sheetUrl) {
     if (!prompt) return Promise.resolve("");
-    return tryModels(IMAGE_MODELS, cachedImageModel, function () {
+    return tryModels(imageModels(), cachedImageModel, function () {
       var parts = [{ text: prompt }];
       var parsed = parseDataUrl(sheetUrl);
       if (parsed) {
@@ -219,7 +262,7 @@
         contents: [{ role: "user", parts: parts }],
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: { aspectRatio: "3:4" }
+          imageConfig: { aspectRatio: "3:4", imageSize: "1K" }
         },
         safetySettings: SAFETY
       };
@@ -300,6 +343,11 @@
     if (!wantsGemini() || !book || !book.prompts) {
       return SBS.DemoArt.paintBook(book, onProgress, onDone);
     }
+    book.imageTier = getImageTier();
+    book.imageModel = imageModelName();
+    if (book.prompts && book.prompts.meta && book.prompts.meta.models) {
+      book.prompts.meta.models.image = imageModelName();
+    }
 
     var spreads = book.spreads || [];
     var total = spreads.length;
@@ -377,6 +425,7 @@
       progress("絵を描いています（あと " + remainingArt(spreads) + " ページ）");
       if (!sheetOk) {
         paintOneDemo(book, i);
+        spreads[i].artSource = "demo";
         usedDemo += 1;
         return wait(20).then(function () { return runImages(i + 1); });
       }
@@ -388,9 +437,11 @@
         }
         if (url) {
           spreads[i].leftArt = url;
+          spreads[i].artSource = "gemini";
           usedGemini += 1;
         } else {
           paintOneDemo(book, i);
+          spreads[i].artSource = "demo";
           usedDemo += 1;
         }
         return wait(360).then(function () { return runImages(i + 1); });
@@ -407,11 +458,118 @@
     });
   }
 
+  function ensurePrompts(book) {
+    if (book.prompts && book.prompts.pages && book.prompts.pages.length) return true;
+    if (!book.intent || !book.bible || !SBS.PromptCompiler) return false;
+    SBS.PromptCompiler.compile(book.intent, book.bible, book);
+    return !!(book.prompts && book.prompts.pages);
+  }
+
+  function recountGenerator(book) {
+    var geminiArt = 0;
+    var demoArt = 0;
+    ((book && book.spreads) || []).forEach(function (s) {
+      if (s.artSource === "gemini") geminiArt += 1;
+      else if (s.artSource === "demo") demoArt += 1;
+    });
+    if (geminiArt || demoArt) setGenerator(book, geminiArt, demoArt);
+  }
+
+  function paintSpread(book, spreadIndex, onProgress, onDone) {
+    paintToken.cancel = false;
+    var spreads = (book && book.spreads) || [];
+    var spread = spreads[spreadIndex];
+    var previous = spread ? spread.leftArt : "";
+    var previousSource = spread ? spread.artSource : "";
+
+    function finish(status, result) {
+      book.redrawResult = result || (status === "interrupted" ? "kept" : "updated");
+      recountGenerator(book);
+      if (onDone) onDone(book, status);
+    }
+
+    function progress(message) {
+      if (onProgress) onProgress(doneCount(book), spreads.length, message);
+    }
+
+    if (!spread) {
+      finish("complete", "kept");
+      return Promise.resolve();
+    }
+
+    if (!wantsGemini() || !ensurePrompts(book)) {
+      paintOneDemo(book, spreadIndex);
+      spread.artSource = "demo";
+      finish("complete", "demo");
+      return Promise.resolve();
+    }
+    book.imageTier = getImageTier();
+    book.imageModel = imageModelName();
+
+    function runImage() {
+        if (paintToken.cancel) {
+          spread.leftArt = previous;
+          spread.artSource = previousSource;
+          finish("interrupted", "kept");
+          return Promise.resolve();
+        }
+      progress("このページの絵を描いています");
+      var page = book.prompts.pages && book.prompts.pages[spreadIndex];
+      return generateImage(page && page.image, book.characterSheet).then(function (url) {
+        if (paintToken.cancel) {
+          spread.leftArt = previous;
+          spread.artSource = previousSource;
+          finish("interrupted", "kept");
+          return;
+        }
+        if (url) {
+          spread.leftArt = url;
+          spread.artSource = "gemini";
+          finish("complete", "updated");
+        } else if (!previous) {
+          paintOneDemo(book, spreadIndex);
+          spread.artSource = "demo";
+          finish("complete", "demo");
+        } else {
+          spread.leftArt = previous;
+          spread.artSource = previousSource;
+          finish("complete", "kept");
+        }
+      });
+    }
+
+    if (book.characterSheet) return runImage();
+    progress("登場人物の見た目をそろえています");
+    return generateImage(book.prompts.characterSheet, null).then(function (url) {
+      if (paintToken.cancel) {
+        spread.leftArt = previous;
+        spread.artSource = previousSource;
+        finish("interrupted", "kept");
+        return;
+      }
+      if (url) book.characterSheet = url;
+      return runImage();
+    }).catch(function () {
+      if (paintToken.cancel) {
+        spread.leftArt = previous;
+        spread.artSource = previousSource;
+        finish("interrupted", "kept");
+        return;
+      }
+      return runImage();
+    });
+  }
+
   SBS.Gemini = {
     getKey: getKey,
     setKey: setKey,
     getMode: getMode,
     setMode: setMode,
+    getImageTier: getImageTier,
+    setImageTier: setImageTier,
+    imageModelName: imageModelName,
+    imageTierLabel: imageTierLabel,
+    modeLabel: modeLabel,
     canCallNetwork: canCallNetwork,
     wantsGemini: wantsGemini,
     statusMessage: statusMessage,
@@ -419,7 +577,8 @@
       paintToken.cancel = true;
       if (SBS.DemoArt) SBS.DemoArt.cancelPaint();
     },
-    paintBook: paintBook
+    paintBook: paintBook,
+    paintSpread: paintSpread
   };
 
   global.SBS = SBS;

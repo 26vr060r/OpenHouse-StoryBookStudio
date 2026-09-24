@@ -69,6 +69,29 @@ body.kiosk .book-page {
   margin-bottom: 12px;
 }
 
+.home-settings {
+  width: min(640px, 100%);
+  margin: 20px auto 0;
+  padding: 14px 16px;
+  border: 1px solid #eadfce;
+  border-radius: 10px;
+  background: #fffdf8;
+  text-align: left;
+}
+
+.home-settings-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.home-settings-list {
+  margin: 0;
+}
+
+.home-settings .note {
+  margin: 12px 0 0;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -334,6 +357,12 @@ textarea {
   color: var(--ink);
   font-family: inherit;
   font-size: 1rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-soft);
+  opacity: 0.55;
 }
 
 .check-label {

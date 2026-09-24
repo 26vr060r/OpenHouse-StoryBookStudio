@@ -135,6 +135,7 @@
       textDirection: book.textDirection || "yoko",
       furigana: !!book.furigana,
       generator: book.generator || "demo",
+      pageCount: book.pageCount || ((book.spreads || []).length * 2) || 12,
       print: { v1: "a4-landscape-spread", masterArt: "hires" },
       paths: {
         bible: "../../bible/" + id + ".bible.json",
@@ -146,7 +147,8 @@
           role: s.role,
           scene: s.scene,
           leftArt: pageFile(id, s.n),
-          paragraphs: s.paragraphs
+          paragraphs: s.paragraphs,
+          artSource: s.artSource || ""
         };
       })
     };
@@ -204,7 +206,8 @@
         role: s.role,
         scene: s.scene,
         paragraphs: s.paragraphs,
-        leftArt: arts[i] || ""
+        leftArt: arts[i] || "",
+        artSource: s.artSource || ""
       };
     });
     return {
@@ -217,6 +220,7 @@
       textDirection: record.textDirection || "yoko",
       furigana: !!record.furigana,
       generator: record.generator || "demo",
+      pageCount: record.pageCount || ((spreads || []).length * 2) || 12,
       intent: entry.intent,
       bible: entry.bible,
       prompts: entry.prompts || null,

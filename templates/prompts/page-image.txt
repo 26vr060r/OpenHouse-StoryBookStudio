@@ -6,7 +6,7 @@
 
 {{WORLD_LOCK}}
 
-This spread only (p{{PAGE}} / 12, scene {{SCENE}}, role {{ROLE}}):
+This spread only (p{{PAGE}} / {{SPREAD_TOTAL}}, scene {{SCENE}}, role {{ROLE}}):
 {{SCENE_DIRECTION}}
 Characters in frame: {{WHO}}
 Composition: {{COMPOSITION}}

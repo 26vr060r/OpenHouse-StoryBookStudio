@@ -151,9 +151,11 @@
     var units = (ch.body && ch.body.heightUnits) || 1;
     var height = units * ppu;
     var kind = ch.kind || "child";
-    var isAnimal = kind === "animal";
+    var isAnimal = kind === "animal" || kind === "plush";
     var isObject = kind === "object";
-    var headR = height * (isAnimal ? 0.22 : 0.16);
+    var isRobot = kind === "robot";
+    var isFairy = kind === "fairy";
+    var headR = height * (isAnimal ? 0.22 : isFairy ? 0.2 : 0.16);
     var walk = pose === "walk" ? 14 : 0;
     var sit = pose === "sit" || pose === "crouch" ? height * 0.22 : 0;
     var top = groundY - height + sit;
@@ -181,7 +183,7 @@
       return;
     }
 
-    ctx.fillStyle = isAnimal ? pal.hair : pal.clothesPrimary;
+    ctx.fillStyle = isAnimal || isRobot ? pal.hair : pal.clothesPrimary;
     if (pose === "cheer") {
       ctx.beginPath();
       ctx.moveTo(cx - 8, bodyTop + 20);
@@ -197,7 +199,7 @@
       ctx.moveTo(cx, bodyTop + 24);
       ctx.lineTo(cx + 80, bodyTop - 30);
       ctx.lineWidth = 14;
-      ctx.strokeStyle = isAnimal ? pal.hair : pal.clothesPrimary;
+      ctx.strokeStyle = isAnimal || isRobot ? pal.hair : pal.clothesPrimary;
       ctx.stroke();
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#3a2a22";
@@ -207,16 +209,33 @@
     ctx.fill();
     ctx.stroke();
 
-    if (!isAnimal) {
+    if (!isAnimal && !isRobot) {
       ctx.fillStyle = pal.clothesAccent;
       ctx.fillRect(cx - 10, bodyTop + 12, 20, Math.max(bodyH - 24, 16));
     }
 
-    ctx.fillStyle = isAnimal ? pal.hair : pal.skin;
-    ctx.beginPath();
-    ctx.arc(cx, top + headR + 4, headR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    if (isFairy) {
+      ctx.fillStyle = pal.clothesAccent || "#e8d5ff";
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.ellipse(cx - headR * 1.15, bodyTop + 10, headR * 0.7, headR * 1.1, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(cx + headR * 1.15, bodyTop + 10, headR * 0.7, headR * 1.1, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = isAnimal || isRobot ? pal.hair : pal.skin;
+    if (isRobot) {
+      roundRect(ctx, cx - headR * 0.9, top + 4, headR * 1.8, headR * 1.8, 8);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(cx, top + headR + 4, headR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
 
     if (isAnimal) {
       ctx.fillStyle = pal.hair;
@@ -229,7 +248,7 @@
       ctx.beginPath();
       ctx.ellipse(cx, top + headR + 10, headR * 0.42, headR * 0.28, 0, 0, Math.PI * 2);
       ctx.fill();
-    } else {
+    } else if (!isRobot) {
       ctx.fillStyle = pal.hair;
       ctx.beginPath();
       ctx.arc(cx, top + headR * 0.7, headR * 0.95, Math.PI, 0);
@@ -288,7 +307,7 @@
     var ctx = canvas.getContext("2d");
     var bible = book.bible || {};
     var setting = (bible.world && bible.world.settingPalette) || "custom";
-    var mood = book.intent && book.intent.mood;
+    var mood = SBS.moodOf ? SBS.moodOf(book.intent).preset : (book.intent && book.intent.mood);
     var groundY = Math.round(((bible.world && bible.world.groundLine) || 0.82) * H);
     var ppu = (bible.world && bible.world.pixelsPerUnit) || 220;
     var pose = poseFor(spread.scene);

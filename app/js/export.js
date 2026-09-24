@@ -132,7 +132,8 @@
     var id = book.bookId;
     var dir = book.textDirection === "tate" ? "tate" : "yoko";
     var body;
-    var label = kind === "booklet" ? "製本用 A5×24ページ" : "A4横 1枚＝見開き1つ";
+    var pageCount = book.pageCount || ((book.spreads || []).length * 2) || 12;
+    var label = kind === "booklet" ? "製本用 A5×" + pageCount + "ページ" : "A4横 1枚＝見開き1つ";
     if (kind === "booklet") {
       body = (book.spreads || []).map(function (s) {
         var src = "../book/" + id + "/" + id + "_p" + pad2(s.n) + ".png";
