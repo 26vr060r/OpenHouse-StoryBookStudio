@@ -14,8 +14,8 @@
     <main class="app">
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つの絵本</h1>
-      <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill operator-only" id="sprint-pill">Sprint 08 ・ Gemini</span>
+      <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き12ページの絵本をつくるスタジオです。</p>
+      <span class="sprint-pill operator-only" id="sprint-pill">Sprint 09 ・ 描き直し</span>
 
       <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
@@ -38,9 +38,20 @@
           <button type="button" class="btn btn-primary" id="btn-resume">つづきから</button>
         </p>
         <p class="note">
-          <strong>いまできること:</strong> 条件を選んで絵本をつくり、めくり、保存し、印刷すること。<br>
+          <strong>いまできること:</strong> 条件を選んで絵本をつくり、めくり、1ページだけ描き直し、保存し、印刷すること。<br>
           待ち時間があるときは「あと○ページ」と出ます。中止すると、途中まで残ります。
         </p>
+        <aside class="home-settings" aria-label="いまの設定">
+          <h2 class="home-settings-title">いまの設定</h2>
+          <dl class="summary home-settings-list">
+            <div><dt>APIキー</dt><dd id="home-setting-key"></dd></div>
+            <div><dt>插絵の作り方</dt><dd id="home-setting-mode"></dd></div>
+            <div><dt>画質</dt><dd id="home-setting-image"></dd></div>
+            <div><dt>ページ数</dt><dd id="home-setting-pages"></dd></div>
+            <div><dt>通信</dt><dd id="home-setting-net"></dd></div>
+          </dl>
+          <p class="note" id="home-setting-note"></p>
+        </aside>
       </section>
 
       <section class="stage" id="screen-library" hidden aria-label="書庫">
@@ -74,6 +85,9 @@
           <fieldset>
             <legend>おはなしの型</legend>
             <div class="chip-row" id="structure-chips"></div>
+            <label class="block-label">おはなしの型を自分で書く
+              <input id="structure-free" maxlength="200" placeholder="例: なくしたものをさがす">
+            </label>
           </fieldset>
         </div>
 
@@ -89,6 +103,9 @@
           <fieldset>
             <legend>絵の雰囲気</legend>
             <div class="chip-row" id="mood-chips"></div>
+            <label class="block-label">絵の雰囲気を自分で書く
+              <input id="mood-free" maxlength="200" placeholder="例: 色えんぴつの細かい線、手のぬくもり">
+            </label>
           </fieldset>
           <fieldset>
             <legend>本文の組方向</legend>
@@ -102,7 +119,7 @@
 
         <div id="wizard-step-3" hidden>
           <h2 class="step-title">だれが出てくる？</h2>
-          <p class="privacy-note">実在の子どものフルネームや住所は書かないでください。あとで絵をつくるとき、外部のサービスへ送ることがあります。</p>
+          <p class="privacy-note">実在の子どものフルネームや住所は書かないでください。あとで絵をつくるとき、外部のサービスへ送ることがあります。登場人物は3人が目安で、4人までです。</p>
           <div id="character-list"></div>
           <button type="button" class="btn btn-ghost" id="btn-add-character">登場人物を足す</button>
         </div>
@@ -156,6 +173,7 @@
           <button type="button" class="btn btn-ghost" id="btn-book-home">ホームへ</button>
           <button type="button" class="btn btn-ghost" id="btn-book-prev">まえ</button>
           <button type="button" class="btn btn-primary" id="btn-book-next">つぎ</button>
+          <button type="button" class="btn btn-ghost" id="btn-redraw">この絵を描き直す</button>
           <button type="button" class="btn btn-primary" id="btn-save-zip">この絵本を保存</button>
           <button type="button" class="btn btn-ghost" id="btn-print">印刷する</button>
           <button type="button" class="btn btn-ghost" id="btn-write-folder" hidden>フォルダに書き出す</button>
@@ -187,7 +205,7 @@
             </label>
             <label>
               <input type="radio" name="print-kind" value="booklet">
-              製本用（A5×24ページ・プリンタの製本／小冊子）
+              <span id="print-booklet-label">製本用（A5×12ページ・プリンタの製本／小冊子）</span>
             </label>
           </fieldset>
           <div class="actions">
@@ -233,6 +251,32 @@
         <label class="check-label">
           <input type="radio" name="gen-mode" value="gemini">
           必ず Gemini（失敗したページはデモ）
+        </label>
+      </fieldset>
+      <fieldset class="settings-modes">
+        <legend>画質（Geminiのとき）</legend>
+        <label class="check-label">
+          <input type="radio" name="image-tier" value="flash" checked>
+          本番 gemini-3.1-flash-image（1K）
+        </label>
+        <label class="check-label">
+          <input type="radio" name="image-tier" value="lite">
+          試し作り gemini-3.1-flash-lite-image（1K）
+        </label>
+      </fieldset>
+      <fieldset class="settings-modes">
+        <legend>絵本のページ数</legend>
+        <label class="check-label">
+          <input type="radio" name="page-count" value="12" checked>
+          見開き12ページ
+        </label>
+        <label class="check-label">
+          <input type="radio" name="page-count" value="18">
+          見開き18ページ
+        </label>
+        <label class="check-label">
+          <input type="radio" name="page-count" value="24">
+          見開き24ページ
         </label>
       </fieldset>
       <p class="note" id="gemini-status">キーがなければデモ插絵です。キーはこのブラウザにだけ残します。</p>

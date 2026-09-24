@@ -7,9 +7,11 @@
     themeFree: "",
     audience: "",
     structure: "",
+    structureFree: "",
     settingPreset: "",
     settingFree: "",
     mood: "",
+    moodFree: "",
     textDirection: "yoko",
     furigana: true,
     furiganaTouched: false,
@@ -27,10 +29,25 @@
     return {
       name: "",
       role: role || "friend",
+      roleFree: "",
       kind: "child",
+      kindFree: "",
       personality: [],
+      personalityFree: "",
       traits: ""
     };
+  }
+
+  function personalityMax() {
+    return (SBS.LIMITS && SBS.LIMITS.personalityMax) || 3;
+  }
+
+  function personalityCountOf(ch) {
+    return ((ch && ch.personality) || []).length + (ch && String(ch.personalityFree || "").trim() ? 1 : 0);
+  }
+
+  function roleLabelOf(ch) {
+    return SBS.labelOf(SBS.PRESETS.roles, ch.role) || String(ch.roleFree || "").trim() || ch.role || "";
   }
 
   function audienceFurigana(audienceId) {
@@ -87,7 +104,9 @@
 
   function readFormIntoState() {
     state.themeFree = clampText(($("theme-free") && $("theme-free").value) || "", SBS.LIMITS.freeText);
+    state.structureFree = clampText(($("structure-free") && $("structure-free").value) || "", SBS.LIMITS.freeText);
     state.settingFree = clampText(($("setting-free") && $("setting-free").value) || "", SBS.LIMITS.freeText);
+    state.moodFree = clampText(($("mood-free") && $("mood-free").value) || "", SBS.LIMITS.freeText);
     state.title = clampText(($("title-input") && $("title-input").value) || "", SBS.LIMITS.title);
     state.dedication = clampText(($("dedication-input") && $("dedication-input").value) || "", SBS.LIMITS.dedication);
     var furigana = $("furigana-input");
@@ -97,20 +116,28 @@
   function collectCharactersFromDom() {
     var cards = document.querySelectorAll(".character-card");
     var next = [];
-    cards.forEach(function (card, index) {
+    cards.forEach(function (card) {
       var nameEl = card.querySelector("[data-field=name]");
-      var roleEl = card.querySelector("[data-field=role]");
-      var kindEl = card.querySelector("[data-field=kind]");
+      var roleBtn = card.querySelector("[data-role][aria-pressed=true]");
+      var kindBtn = card.querySelector("[data-kind][aria-pressed=true]");
+      var roleFreeEl = card.querySelector("[data-field=role-free]");
+      var kindFreeEl = card.querySelector("[data-field=kind-free]");
+      var personalityFreeEl = card.querySelector("[data-field=personality-free]");
       var traitsEl = card.querySelector("[data-field=traits]");
       var personality = [];
       card.querySelectorAll("[data-personality][aria-pressed=true]").forEach(function (btn) {
         personality.push(btn.getAttribute("data-personality"));
       });
+      var role = roleBtn ? roleBtn.getAttribute("data-role") : "";
+      var kind = kindBtn ? kindBtn.getAttribute("data-kind") : "";
       next.push({
         name: clampText(nameEl ? nameEl.value : "", SBS.LIMITS.name),
-        role: roleEl ? roleEl.value : (index === 0 ? "hero" : "friend"),
-        kind: kindEl ? kindEl.value : "child",
+        role: role,
+        roleFree: role ? "" : clampText(roleFreeEl ? roleFreeEl.value : "", SBS.LIMITS.freeText),
+        kind: kind,
+        kindFree: kind ? "" : clampText(kindFreeEl ? kindFreeEl.value : "", SBS.LIMITS.freeText),
         personality: personality,
+        personalityFree: clampText(personalityFreeEl ? personalityFreeEl.value : "", SBS.LIMITS.freeText),
         traits: clampText(traitsEl ? traitsEl.value : "", SBS.LIMITS.freeText)
       });
     });
@@ -123,14 +150,18 @@
     for (i = 0; i < state.characters.length; i += 1) {
       if (state.characters[i].role === "hero") heroCount += 1;
     }
-    if (heroCount === 0 && state.characters.length) {
+    if (heroCount === 0 && state.characters.length && !state.characters[0].role && !String(state.characters[0].roleFree || "").trim()) {
       state.characters[0].role = "hero";
+      state.characters[0].roleFree = "";
     }
     if (heroCount > 1) {
       var seen = false;
       for (i = 0; i < state.characters.length; i += 1) {
         if (state.characters[i].role === "hero") {
-          if (seen) state.characters[i].role = "friend";
+          if (seen) {
+            state.characters[i].role = "friend";
+            state.characters[i].roleFree = "";
+          }
           seen = true;
         }
       }
@@ -143,21 +174,33 @@
     ensureHero();
     return {
       schemaVersion: 1,
-      theme: { preset: state.themePreset || "", freeText: state.themeFree },
+      theme: state.themeFree.trim()
+        ? { preset: "", freeText: state.themeFree }
+        : { preset: state.themePreset || "", freeText: "" },
       audience: state.audience,
-      structure: state.structure,
-      setting: { preset: state.settingPreset || "", freeText: state.settingFree },
-      mood: state.mood,
+      structure: state.structureFree.trim()
+        ? { preset: "", freeText: state.structureFree }
+        : { preset: state.structure || "", freeText: "" },
+      setting: state.settingFree.trim()
+        ? { preset: "", freeText: state.settingFree }
+        : { preset: state.settingPreset || "", freeText: "" },
+      mood: state.moodFree.trim()
+        ? { preset: "", freeText: state.moodFree }
+        : { preset: state.mood || "", freeText: "" },
       textDirection: state.textDirection,
       furigana: state.furigana,
       title: state.title || suggestTitle(),
       dedication: state.dedication,
+      pageCount: SBS.getPageCount ? SBS.getPageCount() : 12,
       characters: state.characters.map(function (c) {
         return {
           name: c.name,
-          role: c.role,
-          kind: c.kind,
-          personality: c.personality.slice(),
+          role: c.role || "",
+          roleFree: c.roleFree || "",
+          kind: c.kind || "",
+          kindFree: c.kindFree || "",
+          personality: (c.personality || []).slice(),
+          personalityFree: c.personalityFree || "",
           traits: c.traits
         };
       })
@@ -178,16 +221,28 @@
     if (step === 1) {
       if (!state.themePreset && !state.themeFree.trim()) return "テーマを選ぶか、伝えたいことを書いてください。";
       if (!state.audience) return "だれのための絵本かを選んでください。";
-      if (!state.structure) return "おはなしの型を選んでください。";
+      if (!state.structure && !state.structureFree.trim()) return "おはなしの型を選ぶか、書いてください。";
     }
     if (step === 2) {
       if (!state.settingPreset && !state.settingFree.trim()) return "舞台を選ぶか、書いてください。";
-      if (!state.mood) return "絵の雰囲気を選んでください。";
+      if (!state.mood && !state.moodFree.trim()) return "絵の雰囲気を選ぶか、書いてください。";
       if (!state.textDirection) return "組方向を選んでください。";
     }
     if (step === 3) {
       ensureHero();
       if (!state.characters.length) return "登場人物を一人以上入れてください。";
+      var heroCount = 0;
+      var i;
+      var ch;
+      for (i = 0; i < state.characters.length; i += 1) {
+        ch = state.characters[i];
+        if (ch.role === "hero") heroCount += 1;
+        if (!ch.role && !String(ch.roleFree || "").trim()) return "やくわりを選ぶか、書いてください。";
+        if (!ch.kind && !String(ch.kindFree || "").trim()) return "しゅるいを選ぶか、書いてください。";
+        if (personalityCountOf(ch) > personalityMax()) return "せいかくは3つまでです。";
+      }
+      if (heroCount === 0) return "主人公のやくわりを一人選んでください。";
+      if (heroCount > 1) return "主人公は一人だけにしてください。";
       if (!heroName().trim()) return "主人公の名前を入力してください。";
     }
     if (step === 4) {
@@ -203,6 +258,75 @@
     el.hidden = !message;
   }
 
+  function clearPressed(row, attr) {
+    row.querySelectorAll("[" + attr + "]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", "false");
+    });
+  }
+
+  function bindExclusiveChipRow(row, attr, selectedId, freeInput, onPick) {
+    var options = attr === "data-role" ? SBS.PRESETS.roles : SBS.PRESETS.kinds;
+    options.forEach(function (opt) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.textContent = opt.label;
+      btn.setAttribute(attr, opt.id);
+      btn.setAttribute("aria-pressed", selectedId === opt.id ? "true" : "false");
+      btn.addEventListener("click", function () {
+        var was = btn.getAttribute("aria-pressed") === "true";
+        clearPressed(row, attr);
+        if (was) {
+          if (onPick) onPick("");
+          return;
+        }
+        btn.setAttribute("aria-pressed", "true");
+        if (freeInput) freeInput.value = "";
+        if (onPick) onPick(opt.id);
+      });
+      row.appendChild(btn);
+    });
+    if (freeInput) {
+      freeInput.addEventListener("input", function () {
+        if (freeInput.value.trim()) clearPressed(row, attr);
+      });
+    }
+  }
+
+  function bindPersonalityRow(card, ch) {
+    var row = card.querySelector("[data-personality-row]");
+    var freeInput = card.querySelector("[data-field=personality-free]");
+    SBS.PRESETS.personalities.forEach(function (opt) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.textContent = opt.label;
+      btn.setAttribute("data-personality", opt.id);
+      btn.setAttribute("aria-pressed", ch.personality.indexOf(opt.id) !== -1 ? "true" : "false");
+      btn.addEventListener("click", function () {
+        var on = btn.getAttribute("aria-pressed") === "true";
+        if (on) {
+          btn.setAttribute("aria-pressed", "false");
+          return;
+        }
+        var selected = card.querySelectorAll("[data-personality][aria-pressed=true]").length;
+        if (freeInput && freeInput.value.trim()) selected += 1;
+        if (selected >= personalityMax()) return;
+        btn.setAttribute("aria-pressed", "true");
+      });
+      row.appendChild(btn);
+    });
+    if (freeInput) {
+      freeInput.addEventListener("input", function () {
+        if (!freeInput.value.trim()) return;
+        var selected = card.querySelectorAll("[data-personality][aria-pressed=true]");
+        if (selected.length >= personalityMax() && selected.length) {
+          selected[selected.length - 1].setAttribute("aria-pressed", "false");
+        }
+      });
+    }
+  }
+
   function renderCharacters() {
     var host = $("character-list");
     if (!host) return;
@@ -215,53 +339,52 @@
         "<label>なまえ" +
         "<input data-field=\"name\" maxlength=\"" + SBS.LIMITS.name + "\" value=\"\">" +
         "</label>" +
-        "<label>やくわり" +
-        "<select data-field=\"role\"></select>" +
+        "<p class=\"field-label\">やくわり</p>" +
+        "<div class=\"chip-row\" data-role-row></div>" +
+        "<label>やくわりを自分で書く" +
+        "<input data-field=\"role-free\" maxlength=\"" + SBS.LIMITS.freeText + "\" placeholder=\"例: 主人公のいとこ\">" +
         "</label>" +
-        "<label>しゅるい" +
-        "<select data-field=\"kind\"></select>" +
+        "<p class=\"field-label\">しゅるい</p>" +
+        "<div class=\"chip-row\" data-kind-row></div>" +
+        "<label>しゅるいを自分で書く" +
+        "<input data-field=\"kind-free\" maxlength=\"" + SBS.LIMITS.freeText + "\" placeholder=\"例: 小さな竜\">" +
         "</label>" +
-        "<p class=\"field-label\">せいかく</p>" +
+        "<p class=\"field-label\">せいかく（3つまで）</p>" +
         "<div class=\"chip-row\" data-personality-row></div>" +
+        "<label>せいかくを自分で書く" +
+        "<input data-field=\"personality-free\" maxlength=\"" + SBS.LIMITS.freeText + "\" placeholder=\"例: 歌がすき\">" +
+        "</label>" +
         "<label>とくちょう" +
         "<textarea data-field=\"traits\" maxlength=\"" + SBS.LIMITS.freeText + "\" rows=\"2\"></textarea>" +
         "</label>";
       host.appendChild(card);
 
       var nameEl = card.querySelector("[data-field=name]");
-      var roleEl = card.querySelector("[data-field=role]");
-      var kindEl = card.querySelector("[data-field=kind]");
       var traitsEl = card.querySelector("[data-field=traits]");
+      var roleFreeEl = card.querySelector("[data-field=role-free]");
+      var kindFreeEl = card.querySelector("[data-field=kind-free]");
+      var personalityFreeEl = card.querySelector("[data-field=personality-free]");
       nameEl.value = ch.name;
       traitsEl.value = ch.traits;
-      SBS.PRESETS.roles.forEach(function (opt) {
-        var option = document.createElement("option");
-        option.value = opt.id;
-        option.textContent = opt.label;
-        if (opt.id === ch.role) option.selected = true;
-        roleEl.appendChild(option);
-      });
-      SBS.PRESETS.kinds.forEach(function (opt) {
-        var option = document.createElement("option");
-        option.value = opt.id;
-        option.textContent = opt.label;
-        if (opt.id === ch.kind) option.selected = true;
-        kindEl.appendChild(option);
-      });
-      var row = card.querySelector("[data-personality-row]");
-      SBS.PRESETS.personalities.forEach(function (opt) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "chip";
-        btn.textContent = opt.label;
-        btn.setAttribute("data-personality", opt.id);
-        btn.setAttribute("aria-pressed", ch.personality.indexOf(opt.id) !== -1 ? "true" : "false");
-        btn.addEventListener("click", function () {
-          var on = btn.getAttribute("aria-pressed") === "true";
-          btn.setAttribute("aria-pressed", on ? "false" : "true");
+      roleFreeEl.value = ch.role ? "" : (ch.roleFree || "");
+      kindFreeEl.value = ch.kind ? "" : (ch.kindFree || "");
+      personalityFreeEl.value = ch.personalityFree || "";
+
+      bindExclusiveChipRow(card.querySelector("[data-role-row]"), "data-role", ch.role, roleFreeEl, function (id) {
+        if (id !== "hero") return;
+        document.querySelectorAll(".character-card").forEach(function (other) {
+          if (other === card) return;
+          var heroBtn = other.querySelector("[data-role=hero]");
+          if (heroBtn && heroBtn.getAttribute("aria-pressed") === "true") {
+            heroBtn.setAttribute("aria-pressed", "false");
+            var friendBtn = other.querySelector("[data-role=friend]");
+            if (friendBtn) friendBtn.setAttribute("aria-pressed", "true");
+          }
         });
-        row.appendChild(btn);
       });
+      bindExclusiveChipRow(card.querySelector("[data-kind-row]"), "data-kind", ch.kind, kindFreeEl);
+      bindPersonalityRow(card, ch);
+
       if (state.characters.length > 1) {
         var remove = document.createElement("button");
         remove.type = "button";
@@ -284,15 +407,20 @@
     var P = SBS.PRESETS;
     $("summary-theme").textContent = SBS.labelOf(P.themes, intent.theme.preset) || intent.theme.freeText || "（未設定）";
     $("summary-audience").textContent = SBS.labelOf(P.audiences, intent.audience) || "（未設定）";
-    $("summary-structure").textContent = SBS.labelOf(P.structures, intent.structure) || "（未設定）";
+    var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
+    $("summary-structure").textContent = SBS.labelOf(P.structures, structurePick.preset) || structurePick.freeText || "（未設定）";
     $("summary-setting").textContent = SBS.labelOf(P.settings, intent.setting.preset) || intent.setting.freeText || "（未設定）";
-    $("summary-mood").textContent = SBS.labelOf(P.moods, intent.mood) || "（未設定）";
+    var moodPick = SBS.moodOf ? SBS.moodOf(intent) : { preset: intent.mood || "", freeText: "" };
+    $("summary-mood").textContent = SBS.labelOf(P.moods, moodPick.preset) || moodPick.freeText || "（未設定）";
     $("summary-direction").textContent = SBS.labelOf(P.directions, intent.textDirection);
     $("summary-furigana").textContent = intent.furigana ? "つける" : "つけない";
     $("summary-title").textContent = intent.title;
     $("summary-dedication").textContent = intent.dedication || "（なし）";
     $("summary-characters").textContent = intent.characters.map(function (c) {
-      return (SBS.labelOf(P.roles, c.role) || c.role) + " " + (c.name || "（無名）");
+      var role = roleLabelOf(c) || "（やくわり未設定）";
+      var kind = SBS.labelOf(P.kinds, c.kind) || String(c.kindFree || "").trim();
+      var pers = SBS.personalityLine ? SBS.personalityLine(c) : "";
+      return role + " " + (c.name || "（無名）") + (kind ? "（" + kind + "）" : "") + (pers ? " / " + pers : "");
     }).join("、");
 
     var studio = $("studio-json");
@@ -336,9 +464,39 @@
     paint();
   }
 
+  function bindExclusiveChipGroup(containerId, options, getPreset, setPreset, freeId, setFree) {
+    function paint() {
+      renderChips($(containerId), options, getPreset(), function (id) {
+        if (getPreset() === id) {
+          setPreset("");
+        } else {
+          setPreset(id);
+          setFree("");
+          if ($(freeId)) $(freeId).value = "";
+        }
+        paint();
+      });
+    }
+    paint();
+    var freeEl = $(freeId);
+    if (freeEl) {
+      freeEl.oninput = function () {
+        setFree(clampText(freeEl.value, SBS.LIMITS.freeText));
+        if (freeEl.value.trim() && getPreset()) {
+          setPreset("");
+          paint();
+        }
+      };
+    }
+  }
+
   function bindChips() {
-    bindChipGroup("theme-chips", SBS.PRESETS.themes, function () { return state.themePreset; }, function (id) {
+    bindExclusiveChipGroup("theme-chips", SBS.PRESETS.themes, function () {
+      return state.themePreset;
+    }, function (id) {
       state.themePreset = id;
+    }, "theme-free", function (text) {
+      state.themeFree = text;
     });
     bindChipGroup("audience-chips", SBS.PRESETS.audiences, function () { return state.audience; }, function (id) {
       state.audience = id;
@@ -347,14 +505,26 @@
         $("furigana-input").checked = state.furigana;
       }
     });
-    bindChipGroup("structure-chips", SBS.PRESETS.structures, function () { return state.structure; }, function (id) {
+    bindExclusiveChipGroup("structure-chips", SBS.PRESETS.structures, function () {
+      return state.structure;
+    }, function (id) {
       state.structure = id;
+    }, "structure-free", function (text) {
+      state.structureFree = text;
     });
-    bindChipGroup("setting-chips", SBS.PRESETS.settings, function () { return state.settingPreset; }, function (id) {
+    bindExclusiveChipGroup("setting-chips", SBS.PRESETS.settings, function () {
+      return state.settingPreset;
+    }, function (id) {
       state.settingPreset = id;
+    }, "setting-free", function (text) {
+      state.settingFree = text;
     });
-    bindChipGroup("mood-chips", SBS.PRESETS.moods, function () { return state.mood; }, function (id) {
+    bindExclusiveChipGroup("mood-chips", SBS.PRESETS.moods, function () {
+      return state.mood;
+    }, function (id) {
       state.mood = id;
+    }, "mood-free", function (text) {
+      state.moodFree = text;
     });
     bindChipGroup("direction-chips", SBS.PRESETS.directions, function () { return state.textDirection; }, function (id) {
       state.textDirection = id;
@@ -362,13 +532,39 @@
   }
 
   function applyIntent(intent) {
-    state.themePreset = intent.themePreset || "";
-    state.themeFree = intent.themeFree || "";
+    if (intent.theme && typeof intent.theme === "object") {
+      state.themePreset = intent.theme.preset || "";
+      state.themeFree = intent.theme.freeText || "";
+    } else {
+      state.themePreset = intent.themePreset || "";
+      state.themeFree = intent.themeFree || "";
+    }
+    if (state.themePreset && state.themeFree) state.themeFree = "";
     state.audience = intent.audience || "";
-    state.structure = intent.structure || "";
-    state.settingPreset = intent.settingPreset || "";
-    state.settingFree = intent.settingFree || "";
-    state.mood = intent.mood || "";
+    if (intent.structure && typeof intent.structure === "object") {
+      state.structure = intent.structure.preset || "";
+      state.structureFree = intent.structure.freeText || "";
+    } else {
+      state.structure = intent.structure || "";
+      state.structureFree = intent.structureFree || "";
+    }
+    if (state.structure && state.structureFree) state.structureFree = "";
+    if (intent.setting && typeof intent.setting === "object") {
+      state.settingPreset = intent.setting.preset || "";
+      state.settingFree = intent.setting.freeText || "";
+    } else {
+      state.settingPreset = intent.settingPreset || "";
+      state.settingFree = intent.settingFree || "";
+    }
+    if (state.settingPreset && state.settingFree) state.settingFree = "";
+    if (intent.mood && typeof intent.mood === "object") {
+      state.mood = intent.mood.preset || "";
+      state.moodFree = intent.mood.freeText || "";
+    } else {
+      state.mood = intent.mood || "";
+      state.moodFree = intent.moodFree || "";
+    }
+    if (state.mood && state.moodFree) state.moodFree = "";
     state.textDirection = intent.textDirection || "yoko";
     state.furigana = intent.furigana !== false;
     state.furiganaTouched = typeof intent.furigana === "boolean";
@@ -379,9 +575,12 @@
       ? intent.characters.map(function (c) {
           return {
             name: c.name || "",
-            role: c.role || "hero",
-            kind: c.kind || "child",
+            role: c.role || "",
+            roleFree: c.roleFree || "",
+            kind: c.kind || "",
+            kindFree: c.kindFree || "",
             personality: (c.personality || []).slice(),
+            personalityFree: c.personalityFree || "",
             traits: c.traits || ""
           };
         })
@@ -390,7 +589,9 @@
 
   function fillInputs() {
     $("theme-free").value = state.themeFree;
+    if ($("structure-free")) $("structure-free").value = state.structureFree;
     $("setting-free").value = state.settingFree;
+    if ($("mood-free")) $("mood-free").value = state.moodFree;
     $("furigana-input").checked = state.furigana;
     $("title-input").value = state.title;
     $("dedication-input").value = state.dedication;

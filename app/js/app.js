@@ -65,6 +65,52 @@
     else dialog.removeAttribute("open");
   }
 
+  function pageModeLabel() {
+    return SBS.pageModeLabel ? SBS.pageModeLabel() : "見開き12ページ";
+  }
+
+  function homeLedeText() {
+    return "テーマや登場人物を選んで、" + pageModeLabel() + "の絵本をつくるスタジオです。";
+  }
+
+  function refreshHomeLede() {
+    var lede = $("page-lede");
+    var home = $("screen-home");
+    if (!lede || (home && home.hidden)) return;
+    lede.textContent = homeLedeText();
+  }
+
+  function refreshGeminiStatus() {
+    var status = $("gemini-status");
+    var keyEl = $("gemini-key");
+    var pageCount = SBS.getPageCount ? SBS.getPageCount() : 12;
+    document.querySelectorAll("input[name=\"page-count\"]").forEach(function (el) {
+      el.checked = parseInt(el.value, 10) === pageCount;
+    });
+    var homePages = $("home-setting-pages");
+    if (homePages) homePages.textContent = pageModeLabel();
+    refreshHomeLede();
+    if (!SBS.Gemini) return;
+    if (keyEl && !keyEl.value) keyEl.value = SBS.Gemini.getKey();
+    document.querySelectorAll("input[name=\"gen-mode\"]").forEach(function (el) {
+      el.checked = el.value === SBS.Gemini.getMode();
+    });
+    document.querySelectorAll("input[name=\"image-tier\"]").forEach(function (el) {
+      el.checked = el.value === SBS.Gemini.getImageTier();
+    });
+    if (status) status.textContent = SBS.Gemini.statusMessage();
+    var homeKey = $("home-setting-key");
+    var homeMode = $("home-setting-mode");
+    var homeImage = $("home-setting-image");
+    var homeNet = $("home-setting-net");
+    var homeNote = $("home-setting-note");
+    if (homeKey) homeKey.textContent = SBS.Gemini.getKey() ? "入っています" : "ありません";
+    if (homeMode) homeMode.textContent = SBS.Gemini.modeLabel();
+    if (homeImage) homeImage.textContent = SBS.Gemini.imageTierLabel();
+    if (homeNet) homeNet.textContent = SBS.Gemini.canCallNetwork() ? "送れます（http）" : "送れません（file:// など）";
+    if (homeNote) homeNote.textContent = SBS.Gemini.statusMessage();
+  }
+
   function showScreen(name) {
     var home = $("screen-home");
     var wizard = $("screen-wizard");
@@ -86,12 +132,19 @@
     if (lede) {
       if (name === "wizard") lede.textContent = "選んだことは、あとから物語と插絵の材料になります。";
       else if (name === "book") lede.textContent = "左が插絵、右が文章です。キャラの見た目は全ページでそろえています。";
-      else if (name === "generating") lede.textContent = "いま、絵本を組み立てています。";
+      else if (name === "generating") {
+        lede.textContent = redrawing
+          ? "いま、このページの絵を描き直しています。"
+          : "いま、絵本を組み立てています。";
+      }
       else if (name === "library") lede.textContent = "保存した絵本を、ここから開き直せます。";
       else if (name === "print") lede.textContent = "A4横の見開きで印刷します。";
-      else lede.textContent = "テーマや登場人物を選んで、見開き24ページの絵本をつくるスタジオです。";
+      else lede.textContent = homeLedeText();
     }
+    if (name === "home") refreshGeminiStatus();
   }
+
+  var redrawing = false;
 
   function doneCount(book) {
     var n = 0;
@@ -149,6 +202,44 @@
         showSoon("絵本", "絵本を開けませんでした。ページを再読み込みして、もう一度試してください。");
       }
     }, 60);
+  }
+
+  function persistBook(book) {
+    if (!book) return Promise.resolve(false);
+    SBS.DemoArt.cachePut(book.title, book);
+    return SBS.LibraryIO.saveLocal(book);
+  }
+
+  function redrawCurrent() {
+    var current = SBS.Viewer.current();
+    var stay = SBS.Viewer.spreadNumber ? SBS.Viewer.spreadNumber() : 1;
+    var idx = SBS.Viewer.spreadIndex ? SBS.Viewer.spreadIndex() : stay - 1;
+    if (!current || !current.spreads || !current.spreads[idx]) {
+      showSoon("描き直し", "先に絵本を開いてから、描き直してください。");
+      return;
+    }
+    redrawing = true;
+    showScreen("generating");
+    $("gen-message").textContent = "このページの絵を描き直しています";
+    var painter = (SBS.Gemini && SBS.Gemini.paintSpread)
+      ? SBS.Gemini.paintSpread
+      : function (book, i, onProgress, onDone) {
+        SBS.DemoArt.paintOne(book, i);
+        if (onDone) onDone(book, "complete");
+      };
+    painter(current, idx, function (done, total, message) {
+      $("gen-message").textContent = message;
+    }, function (finished, status) {
+      redrawing = false;
+      persistBook(finished);
+      refreshFolderButton();
+      showScreen("book");
+      SBS.Viewer.open(finished, stay);
+      if (status === "interrupted") return;
+      if (finished.redrawResult === "kept") {
+        showSoon("描き直し", "描き直せませんでした。前の絵のままです。");
+      }
+    });
   }
 
   function refreshResume() {
@@ -290,21 +381,17 @@
       else SBS.DemoArt.cancelPaint();
     });
     function persistSettings() {
-      if (!SBS.Gemini) return;
-      var keyEl = $("gemini-key");
-      var modeEl = document.querySelector("input[name=\"gen-mode\"]:checked");
-      if (keyEl) SBS.Gemini.setKey(keyEl.value);
-      SBS.Gemini.setMode(modeEl ? modeEl.value : "auto");
+      var pageEl = document.querySelector("input[name=\"page-count\"]:checked");
+      if (SBS.setPageCount) SBS.setPageCount(pageEl ? pageEl.value : 12);
+      if (SBS.Gemini) {
+        var keyEl = $("gemini-key");
+        var modeEl = document.querySelector("input[name=\"gen-mode\"]:checked");
+        var tierEl = document.querySelector("input[name=\"image-tier\"]:checked");
+        if (keyEl) SBS.Gemini.setKey(keyEl.value);
+        SBS.Gemini.setMode(modeEl ? modeEl.value : "auto");
+        SBS.Gemini.setImageTier(tierEl ? tierEl.value : "flash");
+      }
       refreshGeminiStatus();
-    }
-    function refreshGeminiStatus() {
-      var status = $("gemini-status");
-      var keyEl = $("gemini-key");
-      if (keyEl && SBS.Gemini && !keyEl.value) keyEl.value = SBS.Gemini.getKey();
-      document.querySelectorAll("input[name=\"gen-mode\"]").forEach(function (el) {
-        el.checked = SBS.Gemini && el.value === SBS.Gemini.getMode();
-      });
-      if (status && SBS.Gemini) status.textContent = SBS.Gemini.statusMessage();
     }
     $("btn-gear").addEventListener("click", function () {
       refreshFolderButton();
@@ -320,6 +407,12 @@
       $("gemini-key").addEventListener("change", persistSettings);
     }
     document.querySelectorAll("input[name=\"gen-mode\"]").forEach(function (el) {
+      el.addEventListener("change", persistSettings);
+    });
+    document.querySelectorAll("input[name=\"image-tier\"]").forEach(function (el) {
+      el.addEventListener("change", persistSettings);
+    });
+    document.querySelectorAll("input[name=\"page-count\"]").forEach(function (el) {
       el.addEventListener("change", persistSettings);
     });
     $("btn-choose-folder").addEventListener("click", function () {
@@ -350,6 +443,9 @@
       showScreen("home");
       refreshResume();
     });
+    if ($("btn-redraw")) {
+      $("btn-redraw").addEventListener("click", redrawCurrent);
+    }
     $("btn-save-zip").addEventListener("click", function () {
       var current = SBS.Viewer.current();
       if (!current) {
@@ -394,8 +490,11 @@
       document.body.classList.toggle("print-kind-spread", kind !== "booklet");
       if (book) SBS.Export.renderPrint($("print-pages"), book, kind);
       if (!hint) return;
+      var pageCount = (book && (book.pageCount || ((book.spreads || []).length * 2))) || (SBS.getPageCount ? SBS.getPageCount() : 12);
+      var bookletLabel = $("print-booklet-label");
+      if (bookletLabel) bookletLabel.textContent = "製本用（A5×" + pageCount + "ページ・プリンタの製本／小冊子）";
       if (kind === "booklet") {
-        hint.textContent = "本文24ページ（A5縦）です。プリンタの「製本」または「小冊子」で用紙A4・両面にすると、折って一冊になります。PDFは「PDFを保存」を使うと用紙サイズがA5縦で固定されます。奥付は印刷に入りません。";
+        hint.textContent = "本文" + pageCount + "ページ（A5縦）です。プリンタの「製本」または「小冊子」で用紙A4・両面にすると、折って一冊になります。PDFは「PDFを保存」を使うと用紙サイズがA5縦で固定されます。奥付は印刷に入りません。";
       } else {
         hint.textContent = "見開き1つがA4横1枚です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。奥付は印刷に入りません。";
       }
@@ -432,6 +531,7 @@
     SBS.Viewer.bind();
     refreshResume();
     refreshFolderButton();
+    refreshGeminiStatus();
   };
 
   global.SBS = SBS;

@@ -149,14 +149,27 @@
   }
 
   SBS.Viewer = {
-    open: function open(nextBook) {
+    open: function open(nextBook, spreadN) {
       book = nextBook;
-      index = 0;
+      var n = spreadN || 1;
+      if (n < 1) n = 1;
+      if (book && book.spreads && n > book.spreads.length) n = book.spreads.length;
+      if (isPortrait()) index = (n - 1) * 2;
+      else index = n - 1;
+      if (index < 0) index = 0;
       $("book-title-bar").textContent = book.title;
       renderSpread();
     },
     current: function current() {
       return book;
+    },
+    spreadNumber: function spreadNumber() {
+      if (!book) return 1;
+      return spreadOf(index).n;
+    },
+    spreadIndex: function spreadIndex() {
+      if (!book) return 0;
+      return spreadOf(index).n - 1;
     },
     bind: function bind() {
       $("btn-book-prev").addEventListener("click", function () { go(-1); });

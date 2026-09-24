@@ -31,7 +31,7 @@
       theme: SBS.labelOf(SBS.PRESETS.themes, intent.theme.preset) || intent.theme.freeText || "たいせつなこと",
       setting: SBS.labelOf(SBS.PRESETS.settings, intent.setting.preset) || intent.setting.freeText || "まち",
       audience: intent.audience,
-      structure: intent.structure,
+      structure: SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" },
       names: {
         hero: hero.name || "こども",
         friend: friend ? friend.name : ""
@@ -48,6 +48,26 @@
 
   function friendClause(ctx, whenPresent, whenAbsent) {
     return ctx.names.friend ? whenPresent : whenAbsent;
+  }
+
+  function pickBeats(beats, count) {
+    var list = beats || [];
+    var want = count || list.length;
+    if (want >= list.length) return list.slice();
+    if (want <= 1) return list.slice(0, 1);
+    var used = {};
+    var out = [];
+    var i;
+    var idx;
+    for (i = 0; i < want; i += 1) {
+      idx = Math.round(i * (list.length - 1) / (want - 1));
+      while (used[idx] && idx < list.length - 1) idx += 1;
+      used[idx] = true;
+      out.push(list[idx]);
+    }
+    out[0] = list[0];
+    out[out.length - 1] = list[list.length - 1];
+    return out;
   }
 
   function beatsFor(structure) {
@@ -162,7 +182,12 @@
   SBS.Story = {
     build: function build(intent, bible) {
       var ctx = ctxFromIntent(intent);
-      var beats = beatsFor(intent.structure);
+      var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
+      var pageCount = SBS.normalizePageCount
+        ? SBS.normalizePageCount(intent.pageCount || (SBS.getPageCount && SBS.getPageCount()) || 12)
+        : 12;
+      var spreadCount = SBS.spreadCountOf ? SBS.spreadCountOf(pageCount) : pageCount / 2;
+      var beats = pickBeats(beatsFor(structurePick.preset), spreadCount);
       var spreads = beats.map(function (beat, index) {
         return {
           n: index + 1,
@@ -177,6 +202,7 @@
         dedication: ctx.dedication,
         textDirection: intent.textDirection || "yoko",
         furigana: !!intent.furigana,
+        pageCount: spreads.length * 2,
         intent: intent,
         bible: bible,
         spreads: spreads
