@@ -609,10 +609,11 @@ textarea::placeholder {
 }
 
 .right-page {
-  line-height: 1.85;
+  line-height: 2.05;
   font-size: 1.05rem;
   overflow: auto;
   max-height: 520px;
+  padding-top: 0.4em;
 }
 
 .text-review-list {
@@ -690,9 +691,21 @@ textarea::placeholder {
 
 .right-page p {
   margin: 0 0 1em;
+  padding-top: 0.75em;
 }
 
 .right-page ruby {
+  ruby-position: over;
+  ruby-align: center;
+}
+
+.right-page rt {
+  font-size: 0.5em;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.right-page.tate ruby {
   ruby-position: over;
 }
 

@@ -227,7 +227,7 @@
       ctx.fillStyle = "#3a2a22";
       ctx.font = "32px \"Noto Serif JP\", serif";
       ctx.textBaseline = "top";
-      var text = SBS.Story.plainText(spread.paragraphs, names);
+      var text = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
       if (book.textDirection === "tate") {
         drawTateText(ctx, text.split("\n"), SPREAD_W - 100, 80, 40, 48);
       } else {
@@ -256,7 +256,7 @@
     canvas.width = A5_W;
     canvas.height = A5_H;
     var ctx = canvas.getContext("2d");
-    var text = SBS.Story.plainText(spread.paragraphs, names);
+    var text = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
     ctx.fillStyle = "#fffdf8";
     ctx.fillRect(0, 0, A5_W, A5_H);
     ctx.fillStyle = "#3a2a22";

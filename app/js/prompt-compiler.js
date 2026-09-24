@@ -203,12 +203,38 @@
     }
   };
 
+  var GRADE12_KANJI = "一右雨円王音下火花貝学気九休玉金空月犬見五口校左三山子四糸字耳七車手十出女小上森人水正生青夕石赤千川先早草足村大男中虫町天田土二日入年白八百文木本名目立力林六引羽雲園遠何科夏家歌画回会海絵外角楽活間丸岩顔汽記帰弓牛魚京強教近兄形計元言原戸古午後語工公広交光考行高黄合谷国黒今才細作算止市矢姉思紙寺自時室社弱首秋週春書少場色食心新親図数西声星晴切雪船線前組走多太体台地池知茶昼長鳥朝直通弟店点電刀冬当東童道読内南肉馬売買麦半番父風分聞米歩母方北毎妹万明鳴毛門夜野友用曜来里理話";
+
   var SENTENCE_RULES = {
-    "age-2-3": "Very short spoken Japanese. Repeat simple words. One 擬音 is OK. Follow THIS PAGE's target length. For a 24-page book, opening pages stay tiny, turning pages a little longer. Never stop mid-sentence.",
-    "age-4-6": "Simple spoken Japanese. Short dialogue and 擬音. Follow THIS PAGE's target length. For a 24-page kishotenketsu book, opening ~50-80, turning ~90-160. Do not pad.",
-    "age-7-9": "Spoken Japanese for 7-9. Scene + 擬音 + dialogue + a small fail, then recovery. Follow THIS PAGE's target length. 24-page kishotenketsu benchmark: opening 50-85, incident 150-200, fail/turn 180-250, short link 70-110, ending 140-200. Do not pad past the range.",
-    "with-adults": "Richer spoken Japanese, still readable aloud. Humor and a leftover lesson. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.2 times the words. Do not pad."
+    "age-2-3": "Very short spoken Japanese. Repeat simple words. One 擬音 is OK. Follow THIS PAGE's target length. For a 24-page book, opening pages stay tiny, turning pages a little longer. Never stop mid-sentence. SCRIPT: Write the body in ひらがな only. Katakana is OK for names and 擬音. Do not use 漢字, even if the brief or PAGE_PLAN uses 漢字 — rewrite those words in ひらがな. Character names stay as given.",
+    "age-4-6": "Simple spoken Japanese. Short dialogue and 擬音. Follow THIS PAGE's target length. For a 24-page kishotenketsu book, opening ~50-80, turning ~90-160. Do not pad. SCRIPT: Write the body in ひらがな only. Katakana is OK for names and 擬音. Do not use 漢字, even if the brief or PAGE_PLAN uses 漢字 — rewrite those words in ひらがな. Character names stay as given.",
+    "age-7-9": "Spoken Japanese for 7-9. Scene + 擬音 + dialogue + a small fail, then recovery. Follow THIS PAGE's target length. 24-page kishotenketsu benchmark: opening 50-85, incident 150-200, fail/turn 180-250, short link 70-110, ending 140-200. Do not pad past the range. SCRIPT: Use 漢字 only from Japanese elementary grades 1–2 (小学校低学年). Allowed 漢字: " + GRADE12_KANJI + ". Any other 漢字 must be ひらがな (e.g. おきる, こまる, げんば, にげる, ころんだ, すがた, せかい, ゆうき). Names stay as given.",
+    "age-10-12": "Spoken Japanese for 10-12 (upper elementary). Scene + 擬音 + dialogue + a fail, then the hero notices how to recover. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.1 times the words. Do not pad. SCRIPT: Use 漢字 taught in Japanese elementary school (grades 1–6). OK: 起きる, 向かう, 失敗, 世界, 姿, 現場, 深呼吸, 転んだ, 解決. Junior-high-only or rare 漢字 must be ひらがな. Names stay as given.",
+    "age-13-15": "Spoken Japanese for 13-15 (junior high). Readable aloud. Humor from trying to look cool, then a leftover lesson. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.15 times the words. Do not pad. SCRIPT: Use 漢字 at junior-high textbook level and everyday 常用漢字. Avoid rare literary 漢字 (no 脚注, 俯瞰, 示唆). Names stay as given.",
+    "with-adults": "Richer spoken Japanese, still readable aloud. Humor and a leftover lesson. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.2 times the words. Do not pad. SCRIPT: Use everyday 常用漢字 from daily life and newspapers. Avoid rare or literary 漢字 (no 脚注, 理念, 俯瞰, 示唆). Prefer ordinary words such as 失敗, 大事, 考える, 日常. Names stay as given."
   };
+
+  function rubyRule(audience, furigana) {
+    if (!furigana) {
+      return " Do not add 漢字（ふりがな）. Follow the script: young ages stay ひらがな; older ages use bare 漢字.";
+    }
+    return " Furigana is ON and required. Write EVERY 漢字 as 漢字（ひらがな） with Japanese parentheses, e.g. 朝（あさ）空（そら）. Close every parenthesis. Do not output bare 漢字. Do not ruby カタカナ 擬音 or names already in ひらがな.";
+  }
+
+  function sentenceRule(audience, furigana) {
+    var base = SENTENCE_RULES[audience] || SENTENCE_RULES["age-4-6"];
+    var young = audience === "age-2-3" || audience === "age-4-6";
+    if (furigana && young) {
+      return base.replace(
+        /SCRIPT:[\s\S]*$/,
+        "SCRIPT: Furigana is ON. Use easy picture-book 漢字. EVERY 漢字 MUST be written as 漢字（ひらがな）, e.g. 朝（あさ）. Never output 漢字 without a reading. 擬音 stay カタカナ. Names stay as given."
+      );
+    }
+    if (furigana) {
+      return base + " Furigana is ON. EVERY 漢字 MUST be 漢字（ひらがな）. Example: 朝日（あさひ）. Close every parenthesis.";
+    }
+    return base;
+  }
 
   var FULL_BLEED = "Edge-to-edge scene. Fill every pixel of the 3:4 canvas. Large readable figures. Environment continues off every edge. Never a book, never a page, never a white frame.";
 
@@ -581,8 +607,8 @@
         PAGE: page.slice(1),
         SPREAD_TOTAL: String((book.spreads || []).length || 12),
         TITLE: sanitize(intent.title || book.title, 40),
-        THEME: themeLabel,
-        SETTING: settingLabel,
+        THEME: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) || themeLabel,
+        SETTING: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.settings, intent.setting, intent.audience)) || settingLabel,
         AUDIENCE: intent.audience || "",
         AUDIENCE_LABEL: audienceLabel,
         STRUCTURE: structureLabel,
@@ -598,11 +624,9 @@
         FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
         TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
         FURIGANA: book.furigana ? "yes" : "no",
-        SENTENCE_RULE: SENTENCE_RULES[intent.audience] || SENTENCE_RULES["age-4-6"],
+        SENTENCE_RULE: sentenceRule(intent.audience, book.furigana),
         LENGTH_RULE: pagePlanOf(spread).length + " Japanese characters. Cover may be 10-60. Do not force 180.",
-        RUBY_RULE: book.furigana
-          ? " Add 漢字（かんじ） only on hard words. Do not ruby every word."
-          : " Do not add furigana.",
+        RUBY_RULE: rubyRule(intent.audience, book.furigana),
         BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
         SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
         CURRENT_TEXT: currentText || "(empty placeholder)"
@@ -710,7 +734,7 @@
     var scene = spread.scene || "day";
     var copy = SCENE_COPY[scene] || SCENE_COPY.day;
     var storyText = (SBS.Story && SBS.Story.plainText)
-      ? SBS.Story.plainText(spread.paragraphs, names)
+      ? SBS.Story.plainText(spread.paragraphs, names, { ruby: false })
       : "";
     page.image = fill(T.pageImage, {
       IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
@@ -756,9 +780,9 @@
       PAGE: pageToken(spread.n).slice(1),
       SPREAD_TOTAL: String((book.spreads || []).length || 12),
       TITLE: sanitize(intent.title || book.title, 40),
-      THEME: SBS.labelOf(SBS.PRESETS.themes, intent.theme && intent.theme.preset) ||
+      THEME: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) ||
         sanitize(intent.theme && intent.theme.freeText, 80) || "たいせつなこと",
-      SETTING: SBS.labelOf(SBS.PRESETS.settings, intent.setting && intent.setting.preset) ||
+      SETTING: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.settings, intent.setting, intent.audience)) ||
         sanitize(intent.setting && intent.setting.freeText, 80) || "まち",
       AUDIENCE: intent.audience || "",
       AUDIENCE_LABEL: SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience,
@@ -774,11 +798,9 @@
       FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
       TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
       FURIGANA: book.furigana ? "yes" : "no",
-      SENTENCE_RULE: SENTENCE_RULES[intent.audience] || SENTENCE_RULES["age-4-6"],
+      SENTENCE_RULE: sentenceRule(intent.audience, book.furigana),
       LENGTH_RULE: plan.length + " Japanese characters. Cover may be 10-60. Do not force 180.",
-      RUBY_RULE: book.furigana
-        ? " Add 漢字（かんじ） only on hard words. Do not ruby every word."
-        : " Do not add furigana.",
+      RUBY_RULE: rubyRule(intent.audience, book.furigana),
       BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
       CURRENT_TEXT: "(empty placeholder)"
     });

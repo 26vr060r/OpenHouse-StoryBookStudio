@@ -1,6 +1,6 @@
 (function (global) {
   var SBS = global.SBS || {};
-  var STEP_COUNT = 4;
+  var STEP_COUNT = 6;
   var state = {
     step: 1,
     themePreset: "",
@@ -20,7 +20,8 @@
     dedication: "",
     characters: [],
     briefTouched: false,
-    promptOnly: false
+    promptOnly: false,
+    linkedBook: false
   };
 
   function $(id) {
@@ -517,8 +518,13 @@
       if (panel) panel.hidden = n !== step;
     });
     $("wizard-progress").textContent = "ステップ " + step + " / " + STEP_COUNT;
-    $("btn-wizard-back").textContent = (step === 1 || (state.promptOnly && step === 4)) ? "ホームへ" : "戻る";
-    $("btn-wizard-next").textContent = step === 4 ? "この条件でつくる" : "つぎへ";
+    $("btn-wizard-back").textContent = (step === 1 && state.linkedBook)
+      ? "絵本にもどる"
+      : (step === 1 || (state.promptOnly && step === 4)) ? "ホームへ" : "戻る";
+    $("btn-wizard-next").textContent = step === 4
+      ? (state.linkedBook ? "文章の確認へ" : "この条件でつくる")
+      : "つぎへ";
+    if ($("btn-wizard-remake")) $("btn-wizard-remake").hidden = !(step === 4 && state.linkedBook);
     showError("");
     if ($("brief-md-note")) $("brief-md-note").hidden = !!(state.promptOnly && step === 4);
     if ($("brief-md-note-prompt")) $("brief-md-note-prompt").hidden = !(state.promptOnly && step === 4);
@@ -749,6 +755,7 @@
   SBS.Wizard = {
     start: function start(seed) {
       state.promptOnly = false;
+      state.linkedBook = false;
       applyIntent(seed || {
         textDirection: "yoko",
         furigana: true,
@@ -769,6 +776,7 @@
         goStep(state.step + 1);
         return null;
       }
+      if (state.linkedBook) return { resume: true };
       return finishIntent();
     },
     startPrompt: function startPrompt() {
@@ -781,6 +789,7 @@
       state.titleTouched = true;
       state.briefTouched = true;
       state.promptOnly = true;
+      state.linkedBook = false;
       fillInputs();
       bindChips();
       bindBrief();
@@ -801,7 +810,7 @@
       readFormIntoState();
       showError("");
       if (state.promptOnly && state.step === 4) return "home";
-      if (state.step === 1) return "home";
+      if (state.step === 1) return state.linkedBook ? "book" : "home";
       if (state.step === 3) collectCharactersFromDom();
       goStep(state.step - 1);
       return "wizard";
@@ -827,7 +836,48 @@
       patchBriefLine("献辞", state.dedication || "なし");
     },
     bindBrief: bindBrief,
-    currentIntent: buildIntent
+    currentIntent: buildIntent,
+    attachBook: function attachBook() {
+      state.linkedBook = true;
+    },
+    detachBook: function detachBook() {
+      state.linkedBook = false;
+    },
+    hasBook: function hasBook() {
+      return !!state.linkedBook;
+    },
+    goTo: function goTo(step) {
+      goStep(step);
+    },
+    remake: function remake() {
+      var message = validateStep(4);
+      if (message) {
+        showError(message);
+        return null;
+      }
+      return finishIntent();
+    },
+    resumeFromBook: function resumeFromBook(book) {
+      var intent = (book && book.intent) || {};
+      state.promptOnly = false;
+      state.linkedBook = true;
+      applyIntent(intent);
+      if (intent.pageCount && SBS.setPageCount) SBS.setPageCount(intent.pageCount);
+      else if (book && book.pageCount && SBS.setPageCount) SBS.setPageCount(book.pageCount);
+      fillInputs();
+      bindChips();
+      bindBrief();
+      var editor = briefEl();
+      if (editor) {
+        if (intent.briefMarkdown) {
+          editor.value = intent.briefMarkdown;
+          state.briefTouched = true;
+        } else {
+          writeBriefFromIntent(buildIntent());
+          state.briefTouched = true;
+        }
+      }
+    }
   };
 
   global.SBS = SBS;
