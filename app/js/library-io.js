@@ -12,6 +12,77 @@
     return bookId + "_p" + pad2(n) + ".png";
   }
 
+  function sheetToken(charId) {
+    return String(charId || "char").replace(/[^a-z0-9-]/gi, "") || "char";
+  }
+
+  function sheetFile(bookId, charId) {
+    return bookId + "_" + sheetToken(charId) + "_character-sheet.png";
+  }
+
+  function serializeSheets(book) {
+    return ((book && book.characterSheets) || []).map(function (s) {
+      return {
+        id: (s && s.id) || "",
+        url: (s && s.url) || "",
+        note: (s && s.note) || "",
+        source: (s && s.source) || ""
+      };
+    });
+  }
+
+  function hydrateCharacterSheets(book, stored) {
+    if (!book) return book;
+    var chars = (book.bible && book.bible.characters) || [];
+    var incoming = (stored && stored.length ? stored : book.characterSheets) || [];
+    var combined = book.characterSheet || "";
+    book.characterSheets = chars.map(function (ch, index) {
+      var found = incoming[index];
+      var i;
+      if (found && found.id && ch.id && found.id !== ch.id) found = null;
+      if (!found || !(found.url || found.note)) {
+        for (i = 0; i < incoming.length; i += 1) {
+          if (incoming[i] && incoming[i].id && incoming[i].id === ch.id) {
+            found = incoming[i];
+            break;
+          }
+        }
+      }
+      var url = (found && found.url) || ch.sheet || "";
+      if (!url && chars.length === 1 && combined) url = combined;
+      if (url) ch.sheet = url;
+      return {
+        id: ch.id || (found && found.id) || "",
+        url: url,
+        note: (found && found.note) || "",
+        source: (found && found.source) || ""
+      };
+    });
+    if (!book.characterSheet) {
+      for (var j = 0; j < book.characterSheets.length; j += 1) {
+        if (book.characterSheets[j] && book.characterSheets[j].url) {
+          book.characterSheet = book.characterSheets[j].url;
+          break;
+        }
+      }
+    }
+    return book;
+  }
+
+  function bibleForPack(bible) {
+    if (!bible) return {};
+    var copy;
+    try {
+      copy = JSON.parse(JSON.stringify(bible));
+    } catch (err) {
+      return bible;
+    }
+    ((copy.characters) || []).forEach(function (ch) {
+      if (ch && ch.sheet && String(ch.sheet).indexOf("data:") === 0) ch.sheet = "";
+    });
+    return copy;
+  }
+
   function prettyJson(obj) {
     return JSON.stringify(obj, null, 2);
   }
@@ -155,6 +226,14 @@
     if (book.characterSheet) {
       record.paths.characterSheet = id + "_character-sheet.png";
     }
+    record.paths.characterSheets = ((book.characterSheets) || []).map(function (s) {
+      return {
+        id: (s && s.id) || "",
+        file: s && s.url ? sheetFile(id, s.id) : "",
+        note: (s && s.note) || "",
+        source: (s && s.source) || ""
+      };
+    });
     return record;
   }
 
@@ -168,7 +247,7 @@
     }
     files.push({ path: "catalog/" + id + ".catalog.json", data: prettyJson(catalog) });
     files.push({ path: "intent/" + id + ".intent.json", data: prettyJson(book.intent || {}) });
-    files.push({ path: "bible/" + id + ".bible.json", data: prettyJson(book.bible || {}) });
+    files.push({ path: "bible/" + id + ".bible.json", data: prettyJson(bibleForPack(book.bible)) });
     files.push({ path: "book/" + id + "/" + id + ".book.json", data: prettyJson(record) });
     if (book.characterSheet) {
       files.push({
@@ -176,6 +255,13 @@
         data: dataUrlToBytes(book.characterSheet)
       });
     }
+    ((book.characterSheets) || []).forEach(function (s) {
+      if (!s || !s.url) return;
+      files.push({
+        path: "book/" + id + "/" + sheetFile(id, s.id),
+        data: dataUrlToBytes(s.url)
+      });
+    });
     (book.spreads || []).forEach(function (s) {
       if (!s.leftArt) return;
       files.push({
@@ -210,7 +296,7 @@
         artSource: s.artSource || ""
       };
     });
-    return {
+    return hydrateCharacterSheets({
       schemaVersion: record.schemaVersion || 1,
       bookId: record.bookId,
       stamp: record.stamp,
@@ -225,8 +311,9 @@
       bible: entry.bible,
       prompts: entry.prompts || null,
       characterSheet: entry.characterSheet || "",
+      characterSheets: entry.characterSheets || [],
       spreads: spreads
-    };
+    }, entry.characterSheets);
   }
 
   function localEntry(book) {
@@ -238,6 +325,7 @@
       record: packed.record,
       prompts: book.prompts || null,
       characterSheet: book.characterSheet || "",
+      characterSheets: serializeSheets(book),
       arts: (book.spreads || []).map(function (s) { return s.leftArt || ""; })
     };
   }
@@ -323,6 +411,8 @@
     canUseFolder: canUseFolder,
 
     pack: pack,
+
+    hydrateCharacterSheets: hydrateCharacterSheets,
 
     downloadZip: function downloadZip(book) {
       if (!book || !book.bookId) return Promise.resolve(false);
@@ -454,9 +544,9 @@
             root.getDirectoryHandle("book").then(function (d) {
               return d.getDirectoryHandle(bookId).then(function (bd) {
                 return readJsonFile(bd, bookId + ".book.json").then(function (record) {
-                  var arts = Promise.resolve([]);
-                  var chain = Promise.resolve();
                   var urls = [];
+                  var sheets = [];
+                  var chain = Promise.resolve();
                   (record.spreads || []).forEach(function (s, i) {
                     chain = chain.then(function () {
                       return bd.getFileHandle(s.leftArt || pageFile(bookId, s.n)).then(function (fh) {
@@ -466,8 +556,49 @@
                       });
                     });
                   });
-                  arts = chain.then(function () { return urls; });
-                  return Promise.all([record, arts]);
+                  var meta = (record.paths && record.paths.characterSheets) || [];
+                  meta.forEach(function (row, i) {
+                    chain = chain.then(function () {
+                      if (!row || !row.file) {
+                        sheets[i] = {
+                          id: (row && row.id) || "",
+                          url: "",
+                          note: (row && row.note) || "",
+                          source: (row && row.source) || ""
+                        };
+                        return;
+                      }
+                      return bd.getFileHandle(row.file).then(function (fh) {
+                        return fh.getFile().then(blobToDataUrl);
+                      }).catch(function () { return ""; }).then(function (url) {
+                        sheets[i] = {
+                          id: row.id || "",
+                          url: url,
+                          note: row.note || "",
+                          source: row.source || ""
+                        };
+                      });
+                    });
+                  });
+                  if (!meta.length && record.paths && record.paths.characterSheet) {
+                    chain = chain.then(function () {
+                      return bd.getFileHandle(record.paths.characterSheet).then(function (fh) {
+                        return fh.getFile().then(blobToDataUrl);
+                      }).catch(function () { return ""; }).then(function (url) {
+                        if (url) {
+                          sheets[0] = {
+                            id: "",
+                            url: url,
+                            note: "",
+                            source: ""
+                          };
+                        }
+                      });
+                    });
+                  }
+                  return chain.then(function () {
+                    return [record, urls, sheets];
+                  });
                 });
               });
             })
@@ -478,6 +609,7 @@
               bible: parts[1],
               record: parts[2][0],
               arts: parts[2][1],
+              characterSheets: parts[2][2],
               prompts: null
             });
           });

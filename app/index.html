@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>StoryBook Studio</title>
-  <link rel="stylesheet" href="css/studio.css">
+  <title>世界に一つだけの絵本 | StoryBook Studio</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <link rel="stylesheet" href="css/studio.css?v=20260925-title-edit">
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/print.css">
 </head>
@@ -13,7 +14,7 @@
     <button type="button" class="gear operator-only" id="btn-gear" aria-label="運営者設定">⚙</button>
     <main class="app">
       <p class="brand">StoryBook Studio</p>
-      <h1>世界に一つの絵本</h1>
+      <h1>世界に一つだけの絵本</h1>
       <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き12ページの絵本をつくるスタジオです。</p>
       <span class="sprint-pill operator-only" id="sprint-pill">Sprint 09 ・ 描き直し</span>
 
@@ -58,7 +59,7 @@
 
       <section class="stage" id="screen-library" hidden aria-label="書庫">
         <h2 class="step-title">書庫</h2>
-        <p class="note" id="library-folder-note">ブラウザの中に保存した絵本です。開いたあと「工程に戻る」で、ステップ1から6までの指定・文章・キャラ確認を見直せます。Chrome なら歯車からフォルダにも書き出せます。</p>
+        <p class="note" id="library-folder-note">ブラウザの中に保存した絵本です。タイトルを直して「タイトルを保存」すると、書庫の名前が変わります。開いたあと「工程に戻る」で、ステップ1から6までの指定・文章・キャラ確認を見直せます。Chrome なら歯車からフォルダにも書き出せます。</p>
         <ul class="library-list" id="library-list"></ul>
         <p class="empty-library" id="library-empty">まだ保存した絵本はありません。絵本をつくるとここに並びます。「この絵本を保存」でZIPも出せます。</p>
         <div class="actions wizard-nav">
@@ -203,7 +204,11 @@
       </section>
 
       <section class="stage book-stage" id="screen-book" hidden aria-label="絵本">
-        <p class="book-title-bar" id="book-title-bar"></p>
+        <div class="book-title-row">
+          <label class="book-title-label" for="book-title-input">タイトル</label>
+          <input id="book-title-input" class="book-title-input" maxlength="40" autocomplete="off">
+          <button type="button" class="btn btn-ghost" id="btn-save-title">タイトルを保存</button>
+        </div>
         <p class="wizard-progress" id="book-page-label">見開き 1 / 12</p>
         <div class="book-spread" id="book-spread">
           <div class="book-page left-page" id="book-left"></div>
@@ -321,7 +326,7 @@
       </fieldset>
       <fieldset class="settings-modes">
         <legend>画質（插絵・有料）</legend>
-        <p class="note">插絵モデルに Gemini API の無料枠はありません。キーがあっても課金が必要です。2.5 Flash-Lite は文章専用で、插絵APIはありません。近い插絵は gemini-2.5-flash-image を 0.5K（512）で呼びます。</p>
+        <p class="note">插絵モデルに Gemini API の無料枠はありません。キーがあっても課金が必要です。2.5 Flash-Lite は文章専用で、插絵APIはありません。gemini-2.5-flash-image は公式が 1K 固定（0.5K は送れません）。参照画像は最大3枚です。</p>
         <label class="check-label">
           <input type="radio" name="image-tier" value="flash" checked>
           本番 gemini-3.1-flash-image（0.5K）
@@ -332,7 +337,7 @@
         </label>
         <label class="check-label">
           <input type="radio" name="image-tier" value="lite-25">
-          試し作り gemini-2.5-flash-image（0.5K）
+          試し作り gemini-2.5-flash-image（1K・公式固定）
         </label>
       </fieldset>
       <fieldset class="settings-modes">
@@ -357,22 +362,22 @@
     </div>
   </dialog>
 
-  <script src="js/presets.js"></script>
-  <script src="js/intent-markdown.js"></script>
-  <script src="js/originality.js"></script>
-  <script src="js/wizard.js"></script>
-  <script src="js/bible.js"></script>
-  <script src="js/story.js"></script>
-  <script src="js/demo-art.js"></script>
-  <script src="js/prompt-templates.js"></script>
-  <script src="js/zip-store.js"></script>
-  <script src="js/prompt-compiler.js"></script>
-  <script src="js/library-io.js"></script>
-  <script src="js/pdf-write.js"></script>
-  <script src="js/export.js"></script>
-  <script src="js/gemini.js"></script>
-  <script src="js/viewer.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/presets.js?v=20260925-omakase2"></script>
+  <script src="js/intent-markdown.js?v=20260925-omakase2"></script>
+  <script src="js/originality.js?v=20260925-omakase2"></script>
+  <script src="js/wizard.js?v=20260925-title-edit"></script>
+  <script src="js/bible.js?v=20260925-omakase2"></script>
+  <script src="js/story.js?v=20260925-omakase2"></script>
+  <script src="js/demo-art.js?v=20260925-repaint"></script>
+  <script src="js/prompt-templates.js?v=20260925-wordless"></script>
+  <script src="js/zip-store.js?v=20260925-omakase2"></script>
+  <script src="js/prompt-compiler.js?v=20260925-wordless"></script>
+  <script src="js/library-io.js?v=20260925-charsheets"></script>
+  <script src="js/pdf-write.js?v=20260925-omakase2"></script>
+  <script src="js/export.js?v=20260925-omakase2"></script>
+  <script src="js/gemini.js?v=20260925-once"></script>
+  <script src="js/viewer.js?v=20260925-title-edit"></script>
+  <script src="js/app.js?v=20260925-title-edit"></script>
   <script>
     SBS.init();
   </script>

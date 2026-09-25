@@ -34,6 +34,7 @@
       return;
     }
     body.textContent = text;
+    if ($("soon-title")) $("soon-title").textContent = featureName || "お知らせ";
     if (typeof dialog.showModal === "function") {
       dialog.showModal();
     } else {
@@ -153,7 +154,11 @@
       }
       else if (name === "library") lede.textContent = "保存した絵本を、ここから開き直せます。";
       else if (name === "text-review") lede.textContent = "右ページの文章を直してから、登場人物の見た目を確認します。";
-      else if (name === "char-review") lede.textContent = "登場人物の見た目を確認してから、絵本の絵を描きます。";
+      else if (name === "char-review") {
+        lede.textContent = (SBS.Wizard && SBS.Wizard.hasBook && SBS.Wizard.hasBook())
+          ? "この絵本のキャラクター6面図です。当時の試し作りを見直せます。"
+          : "登場人物の見た目を確認してから、絵本の絵を描きます。";
+      }
       else if (name === "print") lede.textContent = "A4横の見開きで印刷します。";
       else lede.textContent = homeLedeText();
     }
@@ -183,7 +188,10 @@
 
   function writeThenReview(nextBook) {
     showScreen("generating");
-    $("gen-message").textContent = "おはなしを書いています";
+    var writingTitle = nextBook && nextBook.title ? String(nextBook.title) : "";
+    $("gen-message").textContent = writingTitle
+      ? "『" + writingTitle + "』のおはなしを書いています"
+      : "おはなしを書いています";
     SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), (nextBook.spreads || []).length);
     var writer = (SBS.Gemini && SBS.Gemini.writeBook) ? SBS.Gemini.writeBook : function (book, onP, onD) {
       if (onD) onD(book, "complete");
@@ -257,13 +265,26 @@
   function applyTextReview(book) {
     var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 400;
     var empty = false;
+    var names = {};
+    var bible = (book && book.bible) || { characters: [] };
+    (bible.characters || []).forEach(function (ch) {
+      if (ch.role === "hero") names.hero = ch.displayName;
+      else if (!names.friend) names.friend = ch.displayName;
+    });
+    if (book.intent && book.intent.characters && book.intent.characters[0]) {
+      names.hero = names.hero || book.intent.characters[0].name || "";
+    }
+    names.friend = names.friend || "";
     (book.spreads || []).forEach(function (spread, i) {
       var ta = $("review-text-" + i);
       if (!ta) return;
       var text = String(ta.value || "").trim();
       if (!text) empty = true;
+      var prev = SBS.Story.plainText(spread.paragraphs, names, { ruby: false }).replace(/\s+/g, " ").trim();
       spread.paragraphs = SBS.Story.fromPlainText(text, cap);
       spread.geminiTextDone = true;
+      var next = SBS.Story.plainText(spread.paragraphs, names, { ruby: false }).replace(/\s+/g, " ").trim();
+      if (prev !== next) spread.textEdited = true;
       if (SBS.PromptCompiler && SBS.PromptCompiler.refreshPageImage) {
         SBS.PromptCompiler.refreshPageImage(book, i);
       }
@@ -294,6 +315,7 @@
         refreshResume();
         return;
       }
+      persistBook(finished);
       showCharReview(finished);
     });
   }
@@ -321,6 +343,9 @@
       showScreen("home");
       return;
     }
+    if (SBS.Wizard && SBS.Wizard.currentTitle) {
+      applyBookTitle(book, SBS.Wizard.currentTitle());
+    }
     persistBook(book);
     showScreen("book");
     SBS.Viewer.open(book);
@@ -330,6 +355,9 @@
   function openStepsFromBook(book) {
     if (!book) return;
     reviewBook = book;
+    if (SBS.LibraryIO && SBS.LibraryIO.hydrateCharacterSheets) {
+      SBS.LibraryIO.hydrateCharacterSheets(book);
+    }
     hydrateWizardFromBook(book);
     if (sheetsReady(book) || !((book.bible && book.bible.characters) || []).length) {
       showCharReview(book);
@@ -434,6 +462,7 @@
       reviewBook = finished;
       setCharBusy(false);
       renderCharReview(finished);
+      persistBook(finished);
       SBS.LibraryIO.sessionSave(finished, "running", doneCount(finished), (finished.spreads || []).length);
     });
   }
@@ -448,8 +477,19 @@
     });
   }
 
+  function resetSpreadArt(book) {
+    ((book && book.spreads) || []).forEach(function (spread) {
+      if (!spread) return;
+      spread.leftArt = "";
+      spread.artSource = "";
+      spread.textEdited = true;
+    });
+    if (book) book.forceRepaint = true;
+  }
+
   function composeThenPaint(nextBook) {
     collectCharNotes(nextBook);
+    resetSpreadArt(nextBook);
     var compose = (SBS.DemoArt && SBS.DemoArt.composeCharacterSheet)
       ? SBS.DemoArt.composeCharacterSheet
       : function (book) { return Promise.resolve(book); };
@@ -485,9 +525,64 @@
     });
   }
 
+  function fallbackOmakaseIntent() {
+    var seeds = [
+      {
+        themePreset: "its-ok", audience: "age-4-6", structure: "problem",
+        settingPreset: "school", mood: "crayon", title: "みおのカレー",
+        characters: [{ name: "みお", role: "hero", kind: "child", personality: ["earnest", "shy"], traits: "子ども。きみどりのぼうし。" }]
+      },
+      {
+        themePreset: "kindness", audience: "age-4-6", structure: "kishotenketsu",
+        settingPreset: "sea", mood: "watercolor", title: "きいろいバケツ",
+        characters: [{ name: "はる", role: "hero", kind: "child", personality: ["kind", "curious"], traits: "子ども。あおのスカーフ。" }]
+      },
+      {
+        themePreset: "family", audience: "age-2-3", structure: "daily",
+        settingPreset: "home", mood: "felt", title: "くつしたどこ",
+        characters: [{ name: "そら", role: "hero", kind: "child", personality: ["playful", "kind"], traits: "子ども。ももいろのてぶくろ。" }]
+      },
+      {
+        themePreset: "curiosity", audience: "age-7-9", structure: "adventure",
+        settingPreset: "space", mood: "night", title: "三つならんだ星",
+        characters: [{ name: "れん", role: "hero", kind: "child", personality: ["curious", "careful"], traits: "子ども。むらさきのバッジ。" }]
+      },
+      {
+        themePreset: "friendship", audience: "age-4-6", structure: "daily",
+        settingPreset: "town", mood: "pastel", title: "かたっぽのながぐつ",
+        characters: [{ name: "ゆず", role: "hero", kind: "child", personality: ["cheerful", "lonely"], traits: "子ども。ちゃいろのながぐつ。" }]
+      },
+      {
+        themePreset: "nature", audience: "age-7-9", structure: "explain",
+        settingPreset: "forest", mood: "colored-pencil", title: "雨あがりのミミズ",
+        characters: [{ name: "こと", role: "hero", kind: "child", personality: ["careful", "curious"], traits: "子ども。みずいろのリュック。" }]
+      }
+    ];
+    var seed = seeds[Math.floor(Math.random() * seeds.length)];
+    seed.furigana = seed.audience === "age-2-3" || seed.audience === "age-4-6";
+    seed.textDirection = "yoko";
+    return SBS.intentFromSeed(seed);
+  }
+
+  function startOmakase() {
+    var intent = null;
+    try {
+      if (typeof SBS.omakaseIntent === "function") intent = SBS.omakaseIntent();
+    } catch (err) {
+      intent = null;
+    }
+    if (!intent || !intent.title || intent.title === "くうのゆうき") {
+      intent = fallbackOmakaseIntent();
+    }
+    openBook(intent);
+  }
+
   function openBook(intent) {
     showScreen("generating");
-    $("gen-message").textContent = "おはなしを書いています";
+    var title = intent && intent.title ? String(intent.title) : "";
+    $("gen-message").textContent = title
+      ? "『" + title + "』のおはなしを書いています"
+      : "おはなしを書いています";
     window.setTimeout(function () {
       try {
         var bible = SBS.Bible.fromIntent(intent);
@@ -509,6 +604,73 @@
     SBS.DemoArt.cachePut(book.title, book);
     return SBS.LibraryIO.saveLocal(book);
   }
+
+  function applyBookTitle(book, nextTitle) {
+    var limit = (SBS.LIMITS && SBS.LIMITS.title) || 40;
+    var title = String(nextTitle || "").replace(/\s+/g, " ").trim().slice(0, limit);
+    if (!book) return { ok: false, reason: "missing" };
+    if (!title) return { ok: false, reason: "empty" };
+    var prev = String(book.title || "");
+    book.title = title;
+    if (!book.intent) book.intent = {};
+    book.intent.title = title;
+    if (book.intent.briefMarkdown && typeof book.intent.briefMarkdown === "string") {
+      book.intent.briefMarkdown = book.intent.briefMarkdown.replace(
+        /(^|\n)(- タイトル：)[^\n]*/,
+        "$1$2" + title
+      );
+    }
+    var spreads = book.spreads || [];
+    var i;
+    var spread;
+    var first;
+    var current;
+    for (i = 0; i < spreads.length; i += 1) {
+      spread = spreads[i];
+      if (!spread || (spread.role && spread.role !== "cover")) continue;
+      first = (spread.paragraphs || [])[0];
+      current = first && SBS.Story && SBS.Story.plainText
+        ? SBS.Story.plainText([first], {}, { ruby: false })
+        : "";
+      if (!first || current === prev || !String(current || "").trim()) {
+        if (!spread.paragraphs) spread.paragraphs = [];
+        spread.paragraphs[0] = [{ t: title }];
+      }
+      break;
+    }
+    return { ok: true, title: title };
+  }
+
+  function refreshOpenTitle(book) {
+    var current = SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current();
+    var input = $("book-title-input");
+    var bar = $("book-title-bar");
+    if (current && book && current.bookId === book.bookId) {
+      SBS.Viewer.open(current, SBS.Viewer.spreadNumber ? SBS.Viewer.spreadNumber() : 1);
+      return;
+    }
+    if (current) return;
+    if (input) input.value = (book && book.title) || "";
+    if (bar) bar.textContent = (book && book.title) || "";
+  }
+
+  function saveBookTitle(book, nextTitle) {
+    var result = applyBookTitle(book, nextTitle);
+    if (!result.ok) {
+      showSoon("タイトル", result.reason === "empty" ? "タイトルを入れてください。" : "タイトルを保存できませんでした。");
+      return Promise.resolve(false);
+    }
+    if (!reviewBook || reviewBook.bookId === book.bookId) reviewBook = book;
+    refreshOpenTitle(book);
+    if (!SBS.Viewer || !SBS.Viewer.current || !SBS.Viewer.current() || SBS.Viewer.current().bookId === book.bookId) {
+      hydrateWizardFromBook(book);
+    }
+    return persistBook(book).then(function () {
+      return true;
+    });
+  }
+
+  SBS.applyBookTitle = applyBookTitle;
 
   function redrawCurrent() {
     var current = SBS.Viewer.current();
@@ -606,6 +768,24 @@
       " " + stamp.slice(9, 11) + ":" + stamp.slice(11, 13);
   }
 
+  function openLibraryBook(bookId) {
+    return SBS.LibraryIO.openLocal(bookId).then(function (book) {
+      if (!book) {
+        showSoon("書庫", "この絵本を開けませんでした。");
+        return null;
+      }
+      reviewBook = book;
+      if (SBS.LibraryIO && SBS.LibraryIO.hydrateCharacterSheets) {
+        SBS.LibraryIO.hydrateCharacterSheets(book);
+      }
+      hydrateWizardFromBook(book);
+      showScreen("book");
+      SBS.Viewer.open(book);
+      refreshFolderButton();
+      return book;
+    });
+  }
+
   function renderLibrary(rows) {
     var list = $("library-list");
     var empty = $("library-empty");
@@ -619,32 +799,66 @@
     rows.forEach(function (row) {
       var cat = row.catalog || {};
       var item = document.createElement("li");
-      var btn = document.createElement("button");
-      var title = document.createElement("span");
+      var edit = document.createElement("div");
+      var label = document.createElement("label");
+      var input = document.createElement("input");
+      var saveBtn = document.createElement("button");
       var meta = document.createElement("span");
-      btn.type = "button";
-      btn.className = "library-item";
-      btn.setAttribute("data-book-id", cat.bookId || "");
-      title.className = "library-title";
-      title.textContent = cat.title || "無題";
+      var actions = document.createElement("div");
+      var openBtn = document.createElement("button");
+      item.className = "library-row";
+      edit.className = "library-title-edit";
+      label.className = "book-title-label";
+      label.textContent = "タイトル";
+      input.className = "library-title-input";
+      input.type = "text";
+      input.maxLength = (SBS.LIMITS && SBS.LIMITS.title) || 40;
+      input.value = cat.title || "";
+      input.setAttribute("aria-label", "タイトル");
+      saveBtn.type = "button";
+      saveBtn.className = "btn btn-ghost";
+      saveBtn.textContent = "タイトルを保存";
       meta.className = "library-meta";
       meta.textContent = formatStamp(cat.stamp) + (cat.bookId ? " ・ " + cat.bookId : "");
-      btn.appendChild(title);
-      btn.appendChild(meta);
-      btn.addEventListener("click", function () {
-        SBS.LibraryIO.openLocal(cat.bookId).then(function (book) {
+      actions.className = "library-row-actions";
+      openBtn.type = "button";
+      openBtn.className = "btn btn-primary";
+      openBtn.textContent = "この絵本を開く";
+      openBtn.addEventListener("click", function () {
+        openLibraryBook(cat.bookId);
+      });
+      saveBtn.addEventListener("click", function () {
+        var current = SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current();
+        var ready = (current && current.bookId === cat.bookId)
+          ? Promise.resolve(current)
+          : SBS.LibraryIO.openLocal(cat.bookId);
+        ready.then(function (book) {
           if (!book) {
             showSoon("書庫", "この絵本を開けませんでした。");
             return;
           }
-          reviewBook = book;
-          hydrateWizardFromBook(book);
-          showScreen("book");
-          SBS.Viewer.open(book);
-          refreshFolderButton();
+          return saveBookTitle(book, input.value).then(function (ok) {
+            if (ok) {
+              cat.title = book.title;
+              input.value = book.title;
+              showSoon("タイトル", "「" + book.title + "」に保存しました。");
+            }
+          });
         });
       });
-      item.appendChild(btn);
+      input.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          saveBtn.click();
+        }
+      });
+      edit.appendChild(label);
+      edit.appendChild(input);
+      edit.appendChild(saveBtn);
+      actions.appendChild(openBtn);
+      item.appendChild(edit);
+      item.appendChild(meta);
+      item.appendChild(actions);
       list.appendChild(item);
     });
   }
@@ -667,9 +881,7 @@
         else startWizard(null);
       });
     }
-    $("btn-omakase").addEventListener("click", function () {
-      openBook(SBS.intentFromSeed(SBS.OMAKASE));
-    });
+    $("btn-omakase").addEventListener("click", startOmakase);
     $("btn-library").addEventListener("click", openLibrary);
     $("btn-library-home").addEventListener("click", function () {
       showScreen("home");
@@ -845,12 +1057,32 @@
     if ($("btn-redraw")) {
       $("btn-redraw").addEventListener("click", redrawCurrent);
     }
+    if ($("btn-save-title")) {
+      $("btn-save-title").addEventListener("click", function () {
+        var current = (SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current()) || reviewBook;
+        if (!current) {
+          showSoon("タイトル", "先に絵本を開いてから、タイトルを保存してください。");
+          return;
+        }
+        saveBookTitle(current, $("book-title-input") ? $("book-title-input").value : current.title).then(function (ok) {
+          if (ok) showSoon("タイトル", "「" + current.title + "」に保存しました。");
+        });
+      });
+    }
+    if ($("book-title-input")) {
+      $("book-title-input").addEventListener("keydown", function (ev) {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        if ($("btn-save-title")) $("btn-save-title").click();
+      });
+    }
     $("btn-save-zip").addEventListener("click", function () {
       var current = SBS.Viewer.current();
       if (!current) {
         showSoon("保存", "先に絵本をつくってから保存してください。");
         return;
       }
+      if ($("book-title-input")) applyBookTitle(current, $("book-title-input").value);
       SBS.LibraryIO.saveLocal(current).then(function () {
         return SBS.LibraryIO.downloadZip(current);
       }).then(function (ok) {
@@ -860,6 +1092,7 @@
     $("btn-write-folder").addEventListener("click", function () {
       var current = SBS.Viewer.current();
       if (!current) return;
+      if ($("book-title-input")) applyBookTitle(current, $("book-title-input").value);
       SBS.LibraryIO.saveLocal(current).then(function () {
         return SBS.LibraryIO.writeFolder(current);
       }).then(function (result) {
