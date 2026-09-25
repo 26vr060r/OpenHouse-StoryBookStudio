@@ -398,7 +398,7 @@
       var spreads = book.spreads || [];
       var i = 0;
       paintToken.cancel = false;
-      while (i < spreads.length && spreads[i].leftArt) i += 1;
+      while (i < spreads.length && !book.forceRepaint && spreads[i].leftArt && !spreads[i].textEdited) i += 1;
 
       function tick() {
         if (paintToken.cancel) {
@@ -414,6 +414,7 @@
         if (i >= 2) msg = "絵をそろえています（あと " + left + " ページ）";
         if (onProgress) onProgress(i, spreads.length, msg);
         spreads[i].leftArt = renderSpread(book, spreads[i]);
+        spreads[i].textEdited = false;
         i += 1;
         if (onProgress) onProgress(i, spreads.length, msg);
         window.setTimeout(tick, 20);

@@ -38,7 +38,12 @@
       names: {
         hero: hero.name || "こども",
         friend: friend ? friend.name : ""
-      }
+      },
+      hook: String(
+        (intent.audience === "age-2-3" || intent.audience === "age-4-6") && intent.plotHookKana
+          ? intent.plotHookKana
+          : (intent.plotHook || "")
+      ).replace(/\s+/g, " ").trim()
     };
   }
 
@@ -108,6 +113,9 @@
     if (bank[key]) raw = bank[key](ctx, hasF);
     else if (DRAFTS["age-4-6"][key]) raw = DRAFTS["age-4-6"][key](ctx, hasF);
     else raw = bank.day(ctx, hasF);
+    if (ctx.hook && key === "spark") {
+      raw = [p(S(ctx.hook))].concat((raw || []).slice(1));
+    }
     return applyScript(raw, ctx);
   }
 
@@ -1059,6 +1067,18 @@
         length: lens.ketsu
       }
     };
+    var hook = String(intent.plotHook || "").replace(/\s+/g, " ").trim();
+    var fail = String(intent.plotFail || "").replace(/\s+/g, " ").trim();
+    var recover = String(intent.plotRecover || "").replace(/\s+/g, " ").trim();
+    var ending = String(intent.plotEnd || "").replace(/\s+/g, " ").trim();
+    if (hook) {
+      ["ki", "ki-road", "sho", "sho-run", "sho-act"].forEach(function (key) {
+        if (catalog[key]) catalog[key].summary += " この本の出来事：" + hook;
+      });
+    }
+    if (fail && catalog["ten-fail"]) catalog["ten-fail"].summary += " この本のつまずき：" + fail;
+    if (recover && catalog["ten-form"]) catalog["ten-form"].summary += " この本の立て直し：" + recover;
+    if (ending && catalog.ketsu) catalog.ketsu.summary += " この本のおわり：" + ending;
     return keys.map(function (key, index) {
       var row = catalog[key] || catalog.ki;
       return {

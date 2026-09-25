@@ -4,4 +4,4 @@ Palette temperature: {{PALETTE_TEMP}}
 Line weight: {{LINE_WEIGHT}}
 Lighting: {{LIGHTING}}
 Children's illustration, consistent character design, no photorealism.
-Do not put letters, titles, speech bubbles, captions, or watermarks in the image.
+HARD: wordless picture. No letters, titles, speech bubbles, thought bubbles, 擬音 letters, captions, situation text, or watermarks.

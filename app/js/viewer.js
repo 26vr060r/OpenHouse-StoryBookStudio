@@ -167,7 +167,11 @@
       if (isPortrait()) index = (n - 1) * 2;
       else index = n - 1;
       if (index < 0) index = 0;
-      $("book-title-bar").textContent = book.title;
+      var titleEl = $("book-title-input") || $("book-title-bar");
+      if (titleEl) {
+        if ("value" in titleEl) titleEl.value = book.title || "";
+        else titleEl.textContent = book.title || "";
+      }
       renderSpread();
     },
     current: function current() {

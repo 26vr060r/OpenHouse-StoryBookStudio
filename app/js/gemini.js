@@ -22,7 +22,6 @@
   ];
   var IMAGE_MODELS_FLASH25 = [
     "gemini-2.5-flash-image",
-    "gemini-2.5-flash-lite-image",
     "gemini-2.5-flash-image-preview"
   ];
   var IMAGE_TIER_IDS = { flash: true, lite: true, "lite-25": true };
@@ -142,8 +141,36 @@
   }
 
   function imageSizeLabel() {
-    return "0.5K";
+    return getImageTier() === "lite-25" ? "1K" : "0.5K";
   }
+
+  function supportsImageSize(model) {
+    return /gemini-3/.test(String(model || ""));
+  }
+
+  function maxRefsFor(model) {
+    return /gemini-2\.5/.test(String(model || "")) ? 3 : 5;
+  }
+
+  function imageConfigFor(model, extra) {
+    extra = extra || {};
+    var cfg = { aspectRatio: extra.aspectRatio || "3:4" };
+    if (supportsImageSize(model)) {
+      cfg.imageSize = extra.imageSize || imageSize();
+    }
+    return cfg;
+  }
+
+  function imageModalities(model) {
+    return /gemini-2\.5/.test(String(model || "")) ? ["IMAGE"] : ["TEXT", "IMAGE"];
+  }
+
+  var IMAGE_SAFETY = [
+    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
+  ];
 
   function pageImageConfig() {
     return { aspectRatio: "3:4", imageSize: imageSize() };
@@ -151,7 +178,8 @@
 
   function imageTierLabel() {
     var role = getImageTier() === "flash" ? "本番" : "試し作り";
-    return role + " " + imageModelName() + "（" + imageSizeLabel() + "）";
+    var note = getImageTier() === "lite-25" ? "・公式は1K固定" : "";
+    return role + " " + imageModelName() + "（" + imageSizeLabel() + note + "）";
   }
 
   function modeLabel() {
@@ -275,7 +303,7 @@
 
     function next(i) {
       if (i >= list.length) return Promise.resolve({ value: null, model: null });
-      return post(list[i], bodyFn()).then(function (res) {
+      return post(list[i], bodyFn(list[i])).then(function (res) {
         if ((res.status === 429 || res.status === 503) && attempt < 2) {
           return wait(1800 * (attempt + 1)).then(function () {
             return tryModels(models, cached, bodyFn, extractFn, attempt + 1);
@@ -311,22 +339,108 @@
     });
   }
 
-  function characterRefs(book) {
+  function characterRefs(book, cast) {
     var chars = (book && book.bible && book.bible.characters) || [];
     var sheets = (book && book.characterSheets) || [];
+    var wanted = cast && cast.length ? cast : chars;
     var out = [];
-    var i;
-    var cap = (SBS.LIMITS && SBS.LIMITS.maxCharacters) || 5;
-    for (i = 0; i < chars.length && out.length < cap; i += 1) {
-      if (sheets[i] && sheets[i].url) {
+    var cap = (SBS.PromptCompiler && SBS.PromptCompiler.pageCastMax) || 3;
+    wanted.forEach(function (ch) {
+      var i;
+      var sheet = null;
+      if (out.length >= cap) return;
+      for (i = 0; i < chars.length; i += 1) {
+        if (chars[i] === ch || (ch && ch.id && chars[i].id === ch.id)) {
+          sheet = sheets[i];
+          break;
+        }
+      }
+      if ((!sheet || !sheet.url) && ch && ch.id) {
+        for (i = 0; i < sheets.length; i += 1) {
+          if (sheets[i] && sheets[i].id === ch.id) {
+            sheet = sheets[i];
+            break;
+          }
+        }
+      }
+      if (sheet && sheet.url) {
         out.push({
-          id: chars[i].id || sheets[i].id,
-          name: chars[i].displayName || "",
-          url: sheets[i].url
+          id: (ch && ch.id) || sheet.id,
+          name: (ch && ch.displayName) || "",
+          url: sheet.url
         });
       }
-    }
+    });
     return out;
+  }
+
+  function refsForPage(book, index) {
+    var max = (SBS.PromptCompiler && SBS.PromptCompiler.pageCastMax) || 3;
+    var cast = (SBS.PromptCompiler && SBS.PromptCompiler.selectPageCast)
+      ? SBS.PromptCompiler.selectPageCast(book, index, max)
+      : ((book && book.bible && book.bible.characters) || []).slice(0, max);
+    return characterRefs(book, cast);
+  }
+
+  function hasIdentitySheets(book) {
+    if (book && book.characterSheet) return true;
+    return ((book && book.characterSheets) || []).some(function (s) {
+      return s && s.url;
+    });
+  }
+
+  function labeledRefParts(refs) {
+    var parts = [];
+    (refs || []).forEach(function (ref, i) {
+      var parsed = parseDataUrl(ref && ref.url ? ref.url : ref);
+      if (!parsed) return;
+      var label = (ref && ref.id)
+        ? "Attached identity image " + (i + 1) + " is ID " + ref.id +
+          (ref.name ? " named \"" + ref.name + "\"" : "") +
+          ". Copy this character exactly. Same face, hair, clothes, species, and height. " +
+          "The sheet may show several angles of this ONE person. Draw ID " + ref.id +
+          " exactly once in the scene. Never a second copy."
+        : "Attached identity image " + (i + 1) +
+          ". Copy this character exactly. Draw this person exactly once. Never twins or clones.";
+      parts.push({ text: label });
+      parts.push({
+        inlineData: { mimeType: parsed.mime, data: parsed.data }
+      });
+    });
+    return parts;
+  }
+
+  function shrinkDataUrl(url, maxEdge) {
+    return new Promise(function (resolve) {
+      if (!url || url.indexOf("data:") !== 0) {
+        resolve(url || "");
+        return;
+      }
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var scale = Math.min(1, (maxEdge || 768) / Math.max(img.width, img.height));
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        } catch (err) {
+          resolve(url);
+        }
+      };
+      img.onerror = function () { resolve(url); };
+      img.src = url;
+    });
+  }
+
+  function shrinkRefs(refs) {
+    return Promise.all((refs || []).map(function (ref) {
+      return shrinkDataUrl(ref && ref.url ? ref.url : ref, 768).then(function (url) {
+        if (typeof ref === "string") return { url: url };
+        return { id: ref.id, name: ref.name, url: url };
+      });
+    }));
   }
 
   function generateImage(prompt, sheetUrl, opts) {
@@ -338,27 +452,25 @@
     if (opts.refs && opts.refs.length) {
       refs = opts.refs;
     } else if (sheetUrl) {
-      refs = [{ url: sheetUrl }];
+      refs = [{ url: sheetUrl, id: "cast", name: "character lock" }];
     }
-    return tryModels(models, cached, function () {
-      var parts = [{ text: prompt }];
-      refs.forEach(function (ref) {
-        var parsed = parseDataUrl(ref && ref.url ? ref.url : ref);
-        if (parsed) {
-          parts.push({
-            inlineData: { mimeType: parsed.mime, data: parsed.data }
-          });
-        }
-      });
-      return {
-        contents: [{ role: "user", parts: parts }],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: opts.imageConfig || pageImageConfig()
-        },
-        safetySettings: SAFETY
-      };
-    }, extractImage, 0).then(function (result) {
+
+    function run(refList) {
+      return tryModels(models, cached, function (model) {
+        var use = (refList || []).slice(0, maxRefsFor(model));
+        var extra = opts.imageConfig || pageImageConfig();
+        return {
+          contents: [{ role: "user", parts: labeledRefParts(use).concat([{ text: prompt }]) }],
+          generationConfig: {
+            responseModalities: imageModalities(model),
+            imageConfig: imageConfigFor(model, extra)
+          },
+          safetySettings: IMAGE_SAFETY
+        };
+      }, extractImage, 0);
+    }
+
+    function finish(result) {
       if (result.model) {
         if (opts.cacheKey === "sheet") cachedSheetModel = result.model;
         else cachedImageModel = result.model;
@@ -366,6 +478,20 @@
       if (!result.value) return "";
       if (opts.crop === false) return result.value;
       return cropBlankMargins(result.value);
+    }
+
+    return shrinkRefs(refs).then(function (small) {
+      return run(small).then(function (result) {
+        if (result.value) return finish(result);
+        if (small.length > 1) {
+          return run(small.slice(0, 1)).then(function (second) {
+            if (second.value) return finish(second);
+            return run([]).then(finish);
+          });
+        }
+        if (small.length) return run([]).then(finish);
+        return finish(result);
+      });
     });
   }
 
@@ -726,7 +852,7 @@
         refreshImagePrompt(book, i);
         return runText(i + 1);
       }
-      progress("おはなしを書いています（あと " + remainingText(spreads) + " ページ）");
+      progress((book.title ? "『" + book.title + "』の" : "") + "おはなしを書いています（あと " + remainingText(spreads) + " ページ）");
       return writePageText(book, i).then(function () {
         if (paintToken.cancel) {
           finish("interrupted");
@@ -736,7 +862,7 @@
       });
     }
 
-    progress("おはなしを書いています");
+    progress((book.title ? "『" + book.title + "』の" : "") + "おはなしを書いています");
     return runText(0).catch(function () {
       finish(paintToken.cancel ? "interrupted" : "complete");
     });
@@ -752,8 +878,7 @@
     var total = spreads.length;
     var usedGemini = 0;
     var usedDemo = 0;
-    var refs = characterRefs(book);
-    var sheetOk = refs.length > 0 || !!book.characterSheet;
+    var sheetOk = hasIdentitySheets(book);
     var settled = false;
 
     function progress(message) {
@@ -764,6 +889,7 @@
       if (settled) return;
       settled = true;
       setGenerator(book, usedGemini, usedDemo);
+      book.forceRepaint = false;
       if (onDone) onDone(book, status);
     }
 
@@ -772,7 +898,7 @@
         finish("interrupted");
         return Promise.resolve();
       }
-      if (refs.length || book.characterSheet) {
+      if (hasIdentitySheets(book)) {
         sheetOk = true;
         return runImages(0);
       }
@@ -797,7 +923,7 @@
         finish("interrupted");
         return Promise.resolve();
       }
-      while (i < spreads.length && spreads[i].leftArt) i += 1;
+      while (i < spreads.length && !book.forceRepaint && spreads[i].leftArt && !spreads[i].textEdited) i += 1;
       if (i >= spreads.length) {
         finish("complete");
         return Promise.resolve();
@@ -806,13 +932,15 @@
       if (!sheetOk) {
         paintOneDemo(book, i);
         spreads[i].artSource = "demo";
+        spreads[i].textEdited = false;
         usedDemo += 1;
         return wait(20).then(function () { return runImages(i + 1); });
       }
       refreshImagePrompt(book, i);
       var page = book.prompts.pages && book.prompts.pages[i];
-      return generateImage(page && page.image, book.characterSheet, {
-        refs: refs.length ? refs : null
+      var pageRefs = refsForPage(book, i);
+      return generateImage(page && page.image, pageRefs.length ? book.characterSheet : "", {
+        refs: pageRefs.length ? pageRefs : null
       }).then(function (url) {
         if (paintToken.cancel) {
           finish("interrupted");
@@ -821,10 +949,12 @@
         if (url) {
           spreads[i].leftArt = url;
           spreads[i].artSource = "gemini";
+          spreads[i].textEdited = false;
           usedGemini += 1;
         } else {
           paintOneDemo(book, i);
           spreads[i].artSource = "demo";
+          spreads[i].textEdited = false;
           usedDemo += 1;
         }
         return wait(360).then(function () { return runImages(i + 1); });
@@ -910,8 +1040,8 @@
       progress("このページの絵を描いています");
       refreshImagePrompt(book, spreadIndex);
       var page = book.prompts.pages && book.prompts.pages[spreadIndex];
-      var refs = characterRefs(book);
-      return generateImage(page && page.image, book.characterSheet, {
+      var refs = refsForPage(book, spreadIndex);
+      return generateImage(page && page.image, refs.length ? book.characterSheet : "", {
         refs: refs.length ? refs : null
       }).then(function (url) {
         if (paintToken.cancel) {
@@ -936,7 +1066,7 @@
       });
     }
 
-    if (characterRefs(book).length || book.characterSheet) return runImage();
+    if (hasIdentitySheets(book)) return runImage();
     progress("登場人物の見た目をそろえています");
     return generateImage(book.prompts.characterSheet, null, { crop: false }).then(function (url) {
       if (paintToken.cancel) {

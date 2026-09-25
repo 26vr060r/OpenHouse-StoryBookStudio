@@ -14,7 +14,7 @@ One 16:9 image. Same character, same colors, same clothes, six full-body views i
 5 bottom-center: high angle from above, full body still readable
 6 bottom-right: low angle from below, full body still readable
 
-No labels, no arrows, no letters, no other people.
+No labels, no arrows, no letters, no speech bubbles, no 擬音, no other people.
 Accessories from the lock must be visible in every view.
 Original design only: market-similar is OK, identical famous characters are not.
 

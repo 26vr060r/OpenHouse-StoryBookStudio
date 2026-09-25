@@ -837,6 +837,10 @@
     },
     bindBrief: bindBrief,
     currentIntent: buildIntent,
+    currentTitle: function currentTitle() {
+      readFormIntoState();
+      return String(state.title || "").trim();
+    },
     attachBook: function attachBook() {
       state.linkedBook = true;
     },

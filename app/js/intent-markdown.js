@@ -156,6 +156,10 @@
       dedication: "",
       pageCount: SBS.getPageCount ? SBS.getPageCount() : 12,
       characters: [],
+      plotHook: "",
+      plotFail: "",
+      plotRecover: "",
+      plotEnd: "",
       briefMarkdown: raw
     };
     var chars = [];
@@ -222,6 +226,14 @@
         applyPersonality(ensureChar(), val);
       } else if (key === "とくちょう") {
         ensureChar().traits = val === "なし" ? "" : val.slice(0, (SBS.LIMITS && SBS.LIMITS.freeText) || 200);
+      } else if (key === "きっかけ") {
+        intent.plotHook = val;
+      } else if (key === "つまずき") {
+        intent.plotFail = val;
+      } else if (key === "立て直し") {
+        intent.plotRecover = val;
+      } else if (key === "おわり") {
+        intent.plotEnd = val;
       }
     });
     flushChar();
@@ -261,6 +273,12 @@
       title: src.title || (book && book.title) || "",
       dedication: src.dedication || (book && book.dedication) || "",
       pageCount: src.pageCount || (book && book.pageCount) || 12,
+      plotHook: src.plotHook || "",
+      plotHookKana: src.plotHookKana || "",
+      plotFail: src.plotFail || "",
+      plotRecover: src.plotRecover || "",
+      plotEnd: src.plotEnd || "",
+      briefMarkdown: src.briefMarkdown || "",
       characters: (src.characters || []).map(function (c) {
         return {
           name: c.name || "",

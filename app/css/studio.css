@@ -47,7 +47,7 @@ body.kiosk .gear {
   display: none;
 }
 
-body.kiosk .book-page {
+body.kiosk .book-spread {
   min-height: 420px;
 }
 
@@ -540,29 +540,54 @@ textarea::placeholder {
   width: min(1100px, 100%);
 }
 
-.book-title-bar {
+.book-title-bar,
+.book-title-row {
   margin: 0 0 8px;
   font-size: 1.2rem;
+}
+
+.book-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.book-title-label {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.book-title-input,
+.library-title-input {
+  flex: 1 1 12em;
+  min-width: 0;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 1.15rem;
+  color: var(--ink);
+  background: #fffdf8;
+  border: 1px solid #eadfce;
+  border-radius: 8px;
 }
 
 .book-spread {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  min-height: 420px;
+  gap: 0;
+  min-height: 0;
   margin: 12px 0 8px;
-}
-
-@media (max-width: 700px), (orientation: portrait) and (max-width: 900px) {
-  .book-spread {
-    grid-template-columns: 1fr;
-  }
+  width: 100%;
+  aspect-ratio: 297 / 210;
+  background: #fffdf8;
+  border: 1px solid #eadfce;
 }
 
 .book-page {
   background: #fffdf8;
-  border: 1px solid #eadfce;
-  min-height: 380px;
+  border: 0;
+  min-height: 0;
+  height: 100%;
   padding: 24px;
 }
 
@@ -570,12 +595,9 @@ textarea::placeholder {
   display: none !important;
 }
 
-.left-page {
-  background: linear-gradient(160deg, #d9c4a8, #c9b08c);
-}
-
 .art-placeholder {
-  min-height: 240px;
+  min-height: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -594,13 +616,13 @@ textarea::placeholder {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  min-height: 380px;
 }
 
 .left-page {
   background: #d9c4a8;
   padding: 0;
   overflow: hidden;
+  border-right: 1px solid #eadfce;
 }
 
 .gen-message {
@@ -612,8 +634,7 @@ textarea::placeholder {
   line-height: 2.05;
   font-size: 1.05rem;
   overflow: auto;
-  max-height: 520px;
-  padding-top: 0.4em;
+  padding: 28px 28px 20px 36px;
 }
 
 .text-review-list {
@@ -685,7 +706,7 @@ textarea::placeholder {
 .right-page.tate {
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  height: 420px;
+  height: 100%;
   width: 100%;
 }
 
@@ -707,6 +728,26 @@ textarea::placeholder {
 
 .right-page.tate ruby {
   ruby-position: over;
+}
+
+@media (max-width: 700px), (orientation: portrait) and (max-width: 900px) {
+  .book-spread {
+    grid-template-columns: 1fr;
+    aspect-ratio: auto;
+    border: 0;
+    background: transparent;
+  }
+
+  .book-page,
+  .right-page.tate {
+    aspect-ratio: 3 / 4;
+    height: auto;
+    border: 1px solid #eadfce;
+  }
+
+  .left-page {
+    border-right: 0;
+  }
 }
 
 .btn:disabled {
@@ -741,6 +782,20 @@ textarea::placeholder {
   gap: 10px;
 }
 
+.library-row {
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #eadfce;
+  background: #fffdf8;
+}
+
+.library-title-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .library-item {
   width: 100%;
   text-align: left;
@@ -755,6 +810,13 @@ textarea::placeholder {
 .library-title {
   display: block;
   font-size: 1.1rem;
+}
+
+.library-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .library-meta {

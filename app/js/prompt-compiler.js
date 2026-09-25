@@ -399,6 +399,67 @@
     return names;
   }
 
+  var PAGE_CAST_MAX = 3;
+
+  function whoLineOf(chars) {
+    var list = (chars || []).map(function (ch) {
+      return (ch.displayName || "character") + " [ID " + ch.id + "] (" + (ch.roleLabel || ch.role) + ")";
+    }).join(", ");
+    if (!list) return "";
+    return list + ". HARD: each ID here is exactly one body — never two of the same character.";
+  }
+
+  function mentionScore(ch, blob) {
+    var score = 0;
+    var name = String((ch && ch.displayName) || "").trim();
+    var promptName = String((ch && ch.promptName) || "").trim();
+    if (name && blob.indexOf(name) !== -1) score += 10;
+    if (promptName && promptName !== name && blob.indexOf(promptName) !== -1) score += 8;
+    if (ch && ch.id && blob.indexOf(ch.id) !== -1) score += 6;
+    return score;
+  }
+
+  function selectPageCast(book, spreadIndex, maxCount, storyText) {
+    var max = maxCount || PAGE_CAST_MAX;
+    var bible = (book && book.bible) || {};
+    var chars = bible.characters || [];
+    var spread = (book && book.spreads && book.spreads[spreadIndex]) || null;
+    var names;
+    var story = String(storyText || "");
+    var plan;
+    var blob;
+    var ranked;
+    var hits;
+    var picked;
+    if (!chars.length) return [];
+    names = namesFrom((book && book.intent) || {}, bible);
+    if (!story && spread && SBS.Story && SBS.Story.plainText) {
+      story = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
+    }
+    plan = pagePlanOf(spread);
+    blob = [story, plan.summary, plan.who].join("\n");
+    ranked = chars.map(function (ch, i) {
+      return { ch: ch, i: i, score: mentionScore(ch, blob) };
+    });
+    hits = ranked.filter(function (row) { return row.score >= 6; });
+    if (!hits.length) hits = ranked.filter(function (row) { return row.score > 0; });
+    hits.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.ch.role === "hero") return -1;
+      if (b.ch.role === "hero") return 1;
+      return a.i - b.i;
+    });
+    picked = hits.slice(0, max).map(function (row) { return row.ch; });
+    if (spread) {
+      spread.pageCast = picked.map(function (ch) { return ch.id; });
+    }
+    return picked;
+  }
+
+  function whoFromStory(storyText, bible, fallback) {
+    return whoLineOf(selectPageCast({ bible: bible, spreads: [] }, 0, PAGE_CAST_MAX, storyText)) || fallback || "";
+  }
+
   function whoFor(scene, names, bible) {
     var chars = (bible && bible.characters) || [];
     var labels = chars.map(function (ch) {
@@ -460,27 +521,47 @@
     return ((bible && bible.characters) || []).map(characterBlock).join("\n");
   }
 
-  function characterRefLines(book) {
+  function sheetIndexOf(book, ch) {
     var chars = (book && book.bible && book.bible.characters) || [];
+    var sheets = (book && book.characterSheets) || [];
+    var i;
+    for (i = 0; i < chars.length; i += 1) {
+      if (ch && (chars[i] === ch || (ch.id && chars[i].id === ch.id))) return i;
+    }
+    for (i = 0; i < sheets.length; i += 1) {
+      if (ch && sheets[i] && sheets[i].id && sheets[i].id === ch.id) return i;
+    }
+    return -1;
+  }
+
+  function characterRefLines(book, cast) {
+    var chars = cast && cast.length
+      ? cast
+      : ((book && book.bible && book.bible.characters) || []);
     var sheets = (book && book.characterSheets) || [];
     var lines = ["Character identity map (do not invent a new design for these IDs):"];
     var n = 0;
     var i;
-    var cap = (SBS.LIMITS && SBS.LIMITS.maxCharacters) || 5;
-    for (i = 0; i < chars.length && n < cap; i += 1) {
-      if (!sheets[i] || !sheets[i].url) continue;
+    var idx;
+    var ch;
+    for (i = 0; i < chars.length && n < PAGE_CAST_MAX; i += 1) {
+      ch = chars[i];
+      idx = sheetIndexOf(book, ch);
+      if (idx < 0 || !sheets[idx] || !sheets[idx].url) continue;
       n += 1;
       lines.push(
-        "Attached image " + n + " is identity ID " + chars[i].id +
-        " named \"" + sanitize(chars[i].promptName || chars[i].displayName, 40) +
-        "\" (role: " + (chars[i].roleLabel || chars[i].role || "") +
-        "). Copy this character exactly. Same ID means the same face, hair, clothes, species, and height."
+        "Attached image " + n + " is identity ID " + ch.id +
+        " named \"" + sanitize(ch.promptName || ch.displayName, 40) +
+        "\" (role: " + (ch.roleLabel || ch.role || "") +
+        "). Copy this character exactly. Same ID means the same face, hair, clothes, species, and height. " +
+        "This sheet is several angles of ONE person. Draw ID " + ch.id + " exactly once."
       );
     }
     if (!n) {
-      return "No attached character identity images. Follow the character lock text.";
+      return "No attached character identity images. Follow the character lock text. HARD: never draw the same character twice.";
     }
-    lines.push("Only place IDs listed in People in the scene. Do not redesign any ID.");
+    lines.push("HARD RULE: each attached image is a turnaround of ONE person. Draw that ID exactly once. Never copy the six-view grid. Never twins or clones.");
+    lines.push("People on this page: only the IDs above (max " + PAGE_CAST_MAX + "). One body per ID. Do not add other book characters. Do not redesign any ID.");
     return lines.join("\n");
   }
 
@@ -574,34 +655,39 @@
       WORLD_LOCK: locks.worldLock,
       NEGATIVE: locks.negative
     };
-    function fillPageImage(spread, storyText) {
+    function fillPageImage(spread, storyText, spreadIndex) {
       var scene = spread.scene || "day";
       var copy = SCENE_COPY[scene] || SCENE_COPY.day;
       var page = pageToken(spread.n);
+      var plan = pagePlanOf(spread);
+      var body = String(storyText || "").replace(/\s+/g, " ").trim();
+      var cast = selectPageCast(book, spreadIndex, PAGE_CAST_MAX, body);
       return fill(T.pageImage, {
         IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
         STYLE_LOCK: shared.STYLE_LOCK,
         CHARACTER_LOCK: shared.CHARACTER_LOCK,
-        CHARACTER_REFS: characterRefLines(book),
+        CHARACTER_REFS: characterRefLines(book, cast),
         WORLD_LOCK: shared.WORLD_LOCK,
         NEGATIVE: shared.NEGATIVE,
         PAGE: page.slice(1),
         SPREAD_TOTAL: String((book.spreads || []).length || 12),
         SCENE: scene,
         ROLE: spread.role || "story",
-        SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
-        STORY_TEXT: storyText || pagePlanOf(spread).summary || copy.direction,
-        WHO: pagePlanOf(spread).who || whoFor(scene, names, bible),
+        SCENE_DIRECTION: body
+          ? "Show the right-page Japanese story as a wordless scene. Follow the story events, never write the words, dialogue, or 擬音."
+          : (plan.summary || copy.direction),
+        STORY_TEXT: body || plan.summary || copy.direction,
+        WHO: whoLineOf(cast) || "No named characters. Do not add people from the book cast.",
         COMPOSITION: FULL_BLEED
       });
     }
     var characterSheet = fill(T.characterSheet, shared);
-    var pages = (book.spreads || []).map(function (spread) {
+    var pages = (book.spreads || []).map(function (spread, spreadIndex) {
       var scene = spread.scene || "day";
       var copy = SCENE_COPY[scene] || SCENE_COPY.day;
       var page = pageToken(spread.n);
       var currentText = SBS.Story.plainText(spread.paragraphs, names);
-      var image = fillPageImage(spread, currentText);
+      var image = fillPageImage(spread, currentText, spreadIndex);
       var text = fill(T.pageText, {
         STORY_SYSTEM: shared.STORY_SYSTEM,
         PAGE: page.slice(1),
@@ -733,25 +819,36 @@
     };
     var scene = spread.scene || "day";
     var copy = SCENE_COPY[scene] || SCENE_COPY.day;
+    var plan = pagePlanOf(spread);
     var storyText = (SBS.Story && SBS.Story.plainText)
       ? SBS.Story.plainText(spread.paragraphs, names, { ruby: false })
       : "";
+    var body = String(storyText || "").replace(/\s+/g, " ").trim();
+    var cast = selectPageCast(book, index, PAGE_CAST_MAX, body);
     page.image = fill(T.pageImage, {
       IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
       STYLE_LOCK: shared.STYLE_LOCK,
       CHARACTER_LOCK: shared.CHARACTER_LOCK,
-      CHARACTER_REFS: characterRefLines(book),
+      CHARACTER_REFS: characterRefLines(book, cast),
       WORLD_LOCK: shared.WORLD_LOCK,
       NEGATIVE: shared.NEGATIVE,
       PAGE: pageToken(spread.n).slice(1),
       SPREAD_TOTAL: String((book.spreads || []).length || 12),
       SCENE: scene,
       ROLE: spread.role || "story",
-      SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
-      STORY_TEXT: storyText || pagePlanOf(spread).summary || copy.direction,
-      WHO: pagePlanOf(spread).who || whoFor(scene, names, bible),
+      SCENE_DIRECTION: body
+        ? "Show the right-page Japanese story as a wordless scene. Follow the story events, never write the words, dialogue, or 擬音."
+        : (plan.summary || copy.direction),
+      STORY_TEXT: body || plan.summary || copy.direction,
+      WHO: whoLineOf(cast) || "No named characters. Do not add people from the book cast.",
       COMPOSITION: FULL_BLEED
     });
+    if (book.prompts.files && book.prompts.files.length) {
+      var needle = "_" + page.page + ".image.prompt.txt";
+      book.prompts.files.forEach(function (file) {
+        if (file.path && file.path.indexOf(needle) !== -1) file.data = page.image;
+      });
+    }
     return page.image;
   }
 
@@ -832,6 +929,8 @@
     refreshAllPageText: refreshAllPageText,
     characterTurnaround: characterTurnaround,
     characterRefLines: characterRefLines,
+    selectPageCast: selectPageCast,
+    pageCastMax: PAGE_CAST_MAX,
     downloadZip: downloadZip
   };
 
