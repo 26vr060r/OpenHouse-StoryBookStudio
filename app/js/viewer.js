@@ -59,6 +59,7 @@
 
     right.innerHTML = "";
     right.className = "book-page right-page " + (book.textDirection === "tate" ? "tate" : "yoko");
+    right.setAttribute("data-role", spread.role || "story");
     (spread.paragraphs || []).forEach(function (tokens) {
       var p = document.createElement("p");
       SBS.Story.renderParagraph(p, tokens, names, book.furigana);
@@ -86,6 +87,11 @@
     $("btn-book-prev").disabled = index <= 0;
     $("btn-book-next").disabled = index >= pageCount() - 1;
     fillBookBrief();
+    if (SBS.PageFit) {
+      SBS.PageFit.afterLayout(function () {
+        if ($("book-right")) SBS.PageFit.fit($("book-right"));
+      });
+    }
 
     var studio = $("book-studio");
     var panel = $("studio-prompts");

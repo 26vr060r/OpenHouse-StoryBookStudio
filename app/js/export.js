@@ -37,7 +37,10 @@
 
   function tokensToHtml(tokens, names, useRuby) {
     var html = "";
-    (tokens || []).forEach(function (tok) {
+    var list = (SBS.Story && SBS.Story.expandPlainRubyTokens)
+      ? SBS.Story.expandPlainRubyTokens(tokens)
+      : (tokens || []);
+    list.forEach(function (tok) {
       if (!tok) return;
       if (tok.n) {
         html += esc(names[tok.n] || "");
@@ -92,6 +95,10 @@
     });
   }
 
+  function standaloneFitScript() {
+    return "<script>(function(){function o(e,t){return t?e.scrollWidth>e.clientWidth+2:e.scrollHeight>e.clientHeight+2;}function f(e){if(!e||e.clientHeight<8)return;var t=e.classList.contains(\"tate\"),min=11,lo=min,hi=20,b=min,i,m;e.style.setProperty(\"--page-size\",\"20px\");e.style.setProperty(\"--page-lead\",\"1.9\");if(!o(e,t))return;for(i=0;i<14;i++){m=(lo+hi)/2;e.style.setProperty(\"--page-size\",m+\"px\");if(o(e,t))hi=m;else{b=m;lo=m;}}e.style.setProperty(\"--page-size\",b+\"px\");if(o(e,t)){e.style.setProperty(\"--page-lead\",\"1.55\");e.style.setProperty(\"--page-gap\",\"0.28em\");}}function run(){document.querySelectorAll(\".right,.leaf:not(.art)\").forEach(f);}if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){requestAnimationFrame(run);});else run();window.addEventListener(\"resize\",run);})();</scr" + "ipt>";
+  }
+
   function standaloneCss(kind) {
     var page = kind === "booklet"
       ? "@page{size:148mm 210mm;margin:8mm;}"
@@ -106,12 +113,14 @@
       ".bar{padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}",
       ".bar button{min-height:44px;padding:8px 16px;border-radius:999px;border:1px solid #7a2e32;background:#fffaf2;color:#7a2e32;font-family:'Noto Sans JP',sans-serif;}",
       ".left{background:#efe3d0;padding:0;overflow:hidden;height:100%;}",
-      ".right{padding:24px 16px 24px 28px;line-height:1.9;font-size:1.2rem;}",
+      ".right,.leaf:not(.art){--page-size:18px;--page-lead:1.9;--page-gap:.45em;--page-pad:.5em;padding:20px 18px 14px 24px;line-height:var(--page-lead);font-size:var(--page-size);overflow:hidden;overflow-wrap:anywhere;word-break:break-word;line-break:strict;height:100%;box-sizing:border-box;}",
+      ".right p,.leaf p{margin:0 0 var(--page-gap);padding-top:var(--page-pad);text-align:justify;}",
+      ".right p:last-child,.leaf p:last-child{margin-bottom:0;}",
       ".right.tate,.leaf.tate{writing-mode:vertical-rl;text-orientation:mixed;}",
       "img{width:100%;height:100%;object-fit:cover;display:block;}",
       ".colophon{margin:16px;padding:24px;color:#6b5348;line-height:1.8;}",
       sheet,
-      "@media print{" + page + " .bar,.colophon{display:none!important;} body{background:#fff;} .left{padding:0;overflow:hidden;} .right{padding:4mm 2mm 4mm 10mm;height:auto;}}"
+      "@media print{" + page + " .bar,.colophon{display:none!important;} body{background:#fff;} .left{padding:0;overflow:hidden;} .right{padding:6mm 4mm 5mm 8mm;height:100%;overflow:hidden;}}"
     ].join("");
   }
 
@@ -124,7 +133,7 @@
       return "<section class=\"spread\"><div class=\"left\"><img src=\"" + esc(src) + "\" alt=\"\"></div><div class=\"right " + dir + "\">" + paragraphsHtml(s, names, book.furigana) + "</div></section>";
     }).join("");
     var colo = "<section class=\"colophon\"><p>" + colophonLines(book).map(esc).join("<br>") + "</p></section>";
-    return "<!DOCTYPE html><html lang=\"ja\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + esc(book.title) + "</title><style>" + standaloneCss("spread") + "</style></head><body><p class=\"bar\">" + esc(book.title) + " ・ 閲覧</p>" + sheets + colo + "</body></html>";
+    return "<!DOCTYPE html><html lang=\"ja\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" + esc(book.title) + "</title><style>" + standaloneCss("spread") + "</style></head><body><p class=\"bar\">" + esc(book.title) + " ・ 閲覧</p>" + sheets + colo + standaloneFitScript() + "</body></html>";
   }
 
   function printHtml(book, kind) {
@@ -145,7 +154,7 @@
         return "<section class=\"spread\"><div class=\"left\"><img src=\"" + esc(src) + "\" alt=\"\"></div><div class=\"right " + dir + "\">" + paragraphsHtml(s, names, book.furigana) + "</div></section>";
       }).join("");
     }
-    return "<!DOCTYPE html><html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>" + esc(book.title) + " 印刷</title><style>" + standaloneCss(kind) + "</style></head><body><div class=\"bar no-print\"><span>" + esc(book.title) + " ・ " + label + "</span><button type=\"button\" onclick=\"window.print()\">印刷する</button></div>" + body + "</body></html>";
+    return "<!DOCTYPE html><html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>" + esc(book.title) + " 印刷</title><style>" + standaloneCss(kind) + "</style></head><body><div class=\"bar no-print\"><span>" + esc(book.title) + " ・ " + label + "</span><button type=\"button\" onclick=\"window.print()\">印刷する</button></div>" + body + standaloneFitScript() + "</body></html>";
   }
 
   function loadImage(src) {
@@ -178,23 +187,77 @@
     return rows;
   }
 
-  function drawYokoText(ctx, lines, x, y, lineH, maxWidth) {
-    wrapYoko(ctx, lines.join("\n"), maxWidth).forEach(function (row) {
-      ctx.fillText(row, x, y);
-      y += lineH;
+  function wrapTate(text, maxHeight, lineH) {
+    var cols = [];
+    String(text || "").split("\n").forEach(function (para) {
+      var col = "";
+      var used = 0;
+      String(para).split("").forEach(function (ch) {
+        if (used + lineH > maxHeight && col) {
+          cols.push(col);
+          col = ch;
+          used = lineH;
+        } else {
+          col += ch;
+          used += lineH;
+        }
+      });
+      if (col) cols.push(col);
+    });
+    return cols;
+  }
+
+  function fitAndDrawYoko(ctx, text, x, y, boxW, boxH, startSize) {
+    var size = startSize || 32;
+    var min = 14;
+    var lead = 1.5;
+    var rows = [];
+    var lineH = 0;
+    while (size >= min) {
+      ctx.font = size + "px \"Noto Serif JP\", serif";
+      rows = wrapYoko(ctx, text, boxW);
+      lineH = Math.round(size * lead);
+      if (rows.length * lineH <= boxH) break;
+      size -= 1;
+    }
+    if (rows.length * lineH > boxH) {
+      lead = 1.28;
+      lineH = Math.round(size * lead);
+    }
+    while (rows.length * lineH > boxH && size > 12) {
+      size -= 1;
+      ctx.font = size + "px \"Noto Serif JP\", serif";
+      rows = wrapYoko(ctx, text, boxW);
+      lineH = Math.round(size * 1.25);
+    }
+    rows.forEach(function (row, i) {
+      if (y + i * lineH + lineH > y + boxH + 1) return;
+      ctx.fillText(row, x, y + i * lineH);
     });
   }
 
-  function drawTateText(ctx, lines, x, y, lineH, colGap) {
-    var col = 0;
-    lines.forEach(function (line) {
-      var cx = x - col * colGap;
+  function fitAndDrawTate(ctx, text, rightX, y, boxW, boxH, startSize) {
+    var size = startSize || 32;
+    var min = 14;
+    var lineH = 0;
+    var colGap = 0;
+    var cols = [];
+    while (size >= min) {
+      lineH = Math.round(size * 1.32);
+      colGap = Math.round(size * 1.65);
+      cols = wrapTate(text, boxH, lineH);
+      if (cols.length * colGap <= boxW) break;
+      size -= 1;
+    }
+    ctx.font = size + "px \"Noto Serif JP\", serif";
+    cols.forEach(function (col, i) {
+      var cx = rightX - i * colGap;
       var cy = y;
-      String(line).split("").forEach(function (ch) {
+      if (cx < rightX - boxW + size) return;
+      String(col).split("").forEach(function (ch) {
         ctx.fillText(ch, cx, cy);
         cy += lineH;
       });
-      col += 1;
     });
   }
 
@@ -225,13 +288,13 @@
       ctx.fillRect(mid, 0, SPREAD_W - mid, SPREAD_H);
       coverImage(ctx, img, 0, 0, mid, SPREAD_H);
       ctx.fillStyle = "#3a2a22";
-      ctx.font = "32px \"Noto Serif JP\", serif";
       ctx.textBaseline = "top";
       var text = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
+      var pad = 72;
       if (book.textDirection === "tate") {
-        drawTateText(ctx, text.split("\n"), SPREAD_W - 100, 80, 40, 48);
+        fitAndDrawTate(ctx, text, SPREAD_W - pad, pad, SPREAD_W - mid - pad * 2, SPREAD_H - pad * 2, 36);
       } else {
-        drawYokoText(ctx, text.split("\n"), mid + 64, 64, 48, SPREAD_W - mid - 120);
+        fitAndDrawYoko(ctx, text, mid + pad, pad, SPREAD_W - mid - pad * 2, SPREAD_H - pad * 2, 36);
       }
       return canvas;
     });
@@ -260,12 +323,11 @@
     ctx.fillStyle = "#fffdf8";
     ctx.fillRect(0, 0, A5_W, A5_H);
     ctx.fillStyle = "#3a2a22";
-    ctx.font = "34px \"Noto Serif JP\", serif";
     ctx.textBaseline = "top";
     if (book.textDirection === "tate") {
-      drawTateText(ctx, text.split("\n"), A5_W - 80, 70, 42, 50);
+      fitAndDrawTate(ctx, text, A5_W - 70, 64, A5_W - 140, A5_H - 128, 38);
     } else {
-      drawYokoText(ctx, text.split("\n"), 64, 70, 50, A5_W - 128);
+      fitAndDrawYoko(ctx, text, 64, 64, A5_W - 128, A5_H - 128, 38);
     }
     return Promise.resolve(canvas);
   }
@@ -318,6 +380,7 @@
           art.appendChild(img);
         }
         text.className = "print-leaf text " + dir;
+        text.setAttribute("data-role", spread.role || "story");
         renderParagraphs(text, spread, book);
         container.appendChild(art);
         container.appendChild(text);
@@ -336,11 +399,17 @@
         left.appendChild(spreadImg);
       }
       right.className = "print-page right " + dir;
+      right.setAttribute("data-role", spread.role || "story");
       renderParagraphs(right, spread, book);
       sheet.appendChild(left);
       sheet.appendChild(right);
       container.appendChild(sheet);
     });
+    if (SBS.PageFit) {
+      SBS.PageFit.afterLayout(function () {
+        SBS.PageFit.fitAll(container, ".print-page.right, .print-leaf.text");
+      });
+    }
   }
 
   function buildPdf(book, kind) {

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>世界に一つだけの絵本 | StoryBook Studio</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <link rel="stylesheet" href="css/studio.css?v=20260925-title-edit">
+  <link rel="stylesheet" href="css/studio.css?v=20260928-fit">
   <link rel="stylesheet" href="css/fonts.css">
-  <link rel="stylesheet" href="css/print.css">
+  <link rel="stylesheet" href="css/print.css?v=20260928-fit">
 </head>
 <body>
   <div class="app-wrap">
@@ -16,7 +16,6 @@
       <p class="brand">StoryBook Studio</p>
       <h1>世界に一つだけの絵本</h1>
       <p class="lede" id="page-lede">テーマや登場人物を選んで、見開き12ページの絵本をつくるスタジオです。</p>
-      <span class="sprint-pill operator-only" id="sprint-pill">Sprint 09 ・ 描き直し</span>
 
       <section class="stage" id="screen-home" aria-label="ホーム">
         <div class="spread-hint" aria-hidden="true">
@@ -116,7 +115,7 @@
           </fieldset>
           <label class="check-label">
             <input type="checkbox" id="furigana-input">
-            ふりがなをつける（2〜6歳ははじめからオン）
+            ふりがなをつける（はじめはオフ。7歳以上は絵本にルビ。本文へ（ふりがな）は書かない。2〜6歳はオンでもひらがなだけ）
           </label>
         </div>
 
@@ -130,7 +129,7 @@
 
         <div id="wizard-step-4" hidden>
           <h2 class="step-title">タイトルと確認</h2>
-          <label class="block-label">タイトル（自動の案を直してよい）
+          <label class="block-label">仮のタイトル（本文のあとで、この本だけの題名に直します）
             <input id="title-input" maxlength="40">
           </label>
           <label class="block-label">献辞（任意）
@@ -172,7 +171,7 @@
       <section class="stage" id="screen-text-review" hidden aria-label="文章の確認">
         <p class="wizard-progress">ステップ 5 / 6</p>
         <h2 class="step-title">文章の確認</h2>
-        <p class="note">右ページの文章です。直してから、登場人物の見た目を確認します。1ページあたり日本語400字までです。ふりがなをつけた本では、朝（あさ）のように書いてください。</p>
+        <p class="note" id="text-review-title-note">文章はステップ4までの指定だけから書いています。題名は本文のあとで、この本だけのものに直しています。右ページを直してから、登場人物の見た目を確認します。7歳以上でふりがなをつけた本では、絵本側でルビを付けます。確認欄には（ふりがな）を書かないでください。2〜6歳はひらがなだけです。</p>
         <p class="error" id="text-review-error" hidden></p>
         <div id="text-review-list" class="text-review-list"></div>
         <div class="actions wizard-nav">
@@ -195,8 +194,14 @@
       </section>
 
       <section class="stage" id="screen-generating" hidden aria-live="polite" aria-label="作成中">
-        <h2 class="step-title">絵本をつくっています</h2>
+        <h2 class="step-title" id="gen-title">絵本をつくっています</h2>
         <p class="gen-message" id="gen-message">登場人物の色をそろえています</p>
+        <div class="gen-progress" id="gen-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="gen-progress-track">
+            <div class="gen-progress-fill" id="gen-progress-fill"></div>
+          </div>
+          <p class="gen-progress-meta" id="gen-progress-meta">0%　完成 0／0 ページ</p>
+        </div>
         <p class="note">色や身長は、全ページで同じになるように裏側でそろえています。絵の枚数が多いときは、少し待つことがあります。中止すると、途中まで残ります。</p>
         <div class="actions wizard-nav">
           <button type="button" class="btn btn-ghost" id="btn-gen-cancel">中止</button>
@@ -362,22 +367,23 @@
     </div>
   </dialog>
 
-  <script src="js/presets.js?v=20260925-omakase2"></script>
-  <script src="js/intent-markdown.js?v=20260925-omakase2"></script>
-  <script src="js/originality.js?v=20260925-omakase2"></script>
-  <script src="js/wizard.js?v=20260925-title-edit"></script>
-  <script src="js/bible.js?v=20260925-omakase2"></script>
-  <script src="js/story.js?v=20260925-omakase2"></script>
-  <script src="js/demo-art.js?v=20260925-repaint"></script>
-  <script src="js/prompt-templates.js?v=20260925-wordless"></script>
+  <script src="js/presets.js?v=20260928-script"></script>
+  <script src="js/intent-markdown.js?v=20260928-script"></script>
+  <script src="js/originality.js?v=20260927-openfix"></script>
+  <script src="js/wizard.js?v=20260928-script"></script>
+  <script src="js/bible.js?v=20260928-world"></script>
+  <script src="js/story.js?v=20260928-ruby3"></script>
+  <script src="js/demo-art.js?v=20260928-progress"></script>
+  <script src="js/prompt-templates.js?v=20260928-world"></script>
   <script src="js/zip-store.js?v=20260925-omakase2"></script>
-  <script src="js/prompt-compiler.js?v=20260925-wordless"></script>
+  <script src="js/prompt-compiler.js?v=20260928-world"></script>
   <script src="js/library-io.js?v=20260925-charsheets"></script>
   <script src="js/pdf-write.js?v=20260925-omakase2"></script>
-  <script src="js/export.js?v=20260925-omakase2"></script>
-  <script src="js/gemini.js?v=20260925-once"></script>
-  <script src="js/viewer.js?v=20260925-title-edit"></script>
-  <script src="js/app.js?v=20260925-title-edit"></script>
+  <script src="js/export.js?v=20260928-fit"></script>
+  <script src="js/gemini.js?v=20260928-world"></script>
+  <script src="js/page-fit.js?v=20260928-fit"></script>
+  <script src="js/viewer.js?v=20260928-fit"></script>
+  <script src="js/app.js?v=20260928-fit"></script>
   <script>
     SBS.init();
   </script>

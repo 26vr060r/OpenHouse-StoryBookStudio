@@ -206,34 +206,31 @@
   var GRADE12_KANJI = "一右雨円王音下火花貝学気九休玉金空月犬見五口校左三山子四糸字耳七車手十出女小上森人水正生青夕石赤千川先早草足村大男中虫町天田土二日入年白八百文木本名目立力林六引羽雲園遠何科夏家歌画回会海絵外角楽活間丸岩顔汽記帰弓牛魚京強教近兄形計元言原戸古午後語工公広交光考行高黄合谷国黒今才細作算止市矢姉思紙寺自時室社弱首秋週春書少場色食心新親図数西声星晴切雪船線前組走多太体台地池知茶昼長鳥朝直通弟店点電刀冬当東童道読内南肉馬売買麦半番父風分聞米歩母方北毎妹万明鳴毛門夜野友用曜来里理話";
 
   var SENTENCE_RULES = {
-    "age-2-3": "Very short spoken Japanese. Repeat simple words. One 擬音 is OK. Follow THIS PAGE's target length. For a 24-page book, opening pages stay tiny, turning pages a little longer. Never stop mid-sentence. SCRIPT: Write the body in ひらがな only. Katakana is OK for names and 擬音. Do not use 漢字, even if the brief or PAGE_PLAN uses 漢字 — rewrite those words in ひらがな. Character names stay as given.",
-    "age-4-6": "Simple spoken Japanese. Short dialogue and 擬音. Follow THIS PAGE's target length. For a 24-page kishotenketsu book, opening ~50-80, turning ~90-160. Do not pad. SCRIPT: Write the body in ひらがな only. Katakana is OK for names and 擬音. Do not use 漢字, even if the brief or PAGE_PLAN uses 漢字 — rewrite those words in ひらがな. Character names stay as given.",
-    "age-7-9": "Spoken Japanese for 7-9. Scene + 擬音 + dialogue + a small fail, then recovery. Follow THIS PAGE's target length. 24-page kishotenketsu benchmark: opening 50-85, incident 150-200, fail/turn 180-250, short link 70-110, ending 140-200. Do not pad past the range. SCRIPT: Use 漢字 only from Japanese elementary grades 1–2 (小学校低学年). Allowed 漢字: " + GRADE12_KANJI + ". Any other 漢字 must be ひらがな (e.g. おきる, こまる, げんば, にげる, ころんだ, すがた, せかい, ゆうき). Names stay as given.",
-    "age-10-12": "Spoken Japanese for 10-12 (upper elementary). Scene + 擬音 + dialogue + a fail, then the hero notices how to recover. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.1 times the words. Do not pad. SCRIPT: Use 漢字 taught in Japanese elementary school (grades 1–6). OK: 起きる, 向かう, 失敗, 世界, 姿, 現場, 深呼吸, 転んだ, 解決. Junior-high-only or rare 漢字 must be ひらがな. Names stay as given.",
-    "age-13-15": "Spoken Japanese for 13-15 (junior high). Readable aloud. Humor from trying to look cool, then a leftover lesson. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.15 times the words. Do not pad. SCRIPT: Use 漢字 at junior-high textbook level and everyday 常用漢字. Avoid rare literary 漢字 (no 脚注, 俯瞰, 示唆). Names stay as given.",
-    "with-adults": "Richer spoken Japanese, still readable aloud. Humor and a leftover lesson. Follow THIS PAGE's target length. Same 24-page kishotenketsu shape as 7-9, about 1.2 times the words. Do not pad. SCRIPT: Use everyday 常用漢字 from daily life and newspapers. Avoid rare or literary 漢字 (no 脚注, 理念, 俯瞰, 示唆). Prefer ordinary words such as 失敗, 大事, 考える, 日常. Names stay as given."
+    "age-2-3": "Very short spoken Japanese. Repeat simple words. One 擬音 is OK. HARD: reach THIS PAGE's target length (the lower number is required). SCRIPT: Write the body in ひらがな only. Katakana is OK for names and 擬音. Do not use 漢字, even if the memo uses 漢字 — rewrite those words in ひらがな. Character names stay as given.",
+    "age-4-6": "Simple spoken Japanese. Short dialogue and 擬音. HARD: reach THIS PAGE's target length (the lower number is required). SCRIPT: Write the body in ひらがな only. Katakana is OK for names and 擬音. Do not use 漢字, even if the memo uses 漢字 — rewrite those words in ひらがな. Character names stay as given.",
+    "age-7-9": "Spoken Japanese for 7-9. Scene + 擬音 + dialogue. HARD: reach THIS PAGE's target length (the lower number is required). SCRIPT: Use 漢字 only from Japanese elementary grades 1–2 (小学校低学年までに学ぶ漢字). Allowed 漢字: " + GRADE12_KANJI + ". Any other 漢字 must be ひらがな. Names stay as given.",
+    "age-10-12": "Spoken Japanese for 10-12 (upper elementary). Scene + 擬音 + dialogue. HARD: reach THIS PAGE's target length (the lower number is required). SCRIPT: Use 漢字 taught through Japanese elementary grade 6 (小学校高学年までに学ぶ漢字 / 学年配当1〜6年). Junior-high-only or rare 漢字 must be ひらがな. Names stay as given.",
+    "age-13-15": "Spoken Japanese for 13-15 (junior high). Readable aloud. HARD: reach THIS PAGE's target length (the lower number is required). SCRIPT: Use 漢字 taught through Japanese junior high (中学校までに学ぶ漢字) and everyday 常用漢字. Avoid rare literary 漢字. Names stay as given.",
+    "with-adults": "Richer spoken Japanese, still readable aloud. HARD: reach THIS PAGE's target length (the lower number is required). SCRIPT: Use everyday 漢字 from daily life and newspapers (通常生活で使う漢字). Avoid rare or literary 漢字. Names stay as given."
   };
 
   function rubyRule(audience, furigana) {
-    if (!furigana) {
-      return " Do not add 漢字（ふりがな）. Follow the script: young ages stay ひらがな; older ages use bare 漢字.";
+    var young = audience === "age-2-3" || audience === "age-4-6";
+    if (young) {
+      return " Ages 2–6: ひらがな only. Do not use 漢字. Do not write 漢字（ひらがな）. Furigana-on does not add kanji.";
     }
-    return " Furigana is ON and required. Write EVERY 漢字 as 漢字（ひらがな） with Japanese parentheses, e.g. 朝（あさ）空（そら）. Close every parenthesis. Do not output bare 漢字. Do not ruby カタカナ 擬音 or names already in ひらがな.";
+    if (!furigana) {
+      return " Furigana is OFF. Do not add 漢字（ふりがな）. Use bare allowed 漢字.";
+    }
+    return " HARD: Furigana is ON. Every 漢字 word MUST be written as 漢字（ひらがな） per 熟語, not per character: 学校（がっこう）, 友達（ともだち）, 東京（とうきょう）. A one-kanji word may be 空（そら） or 行（い）った. Never 学（がく）校（こう）. Never leave bare 漢字. Close every parenthesis. Length counts WITHOUT the （ひらがな）: 学校（がっこう）=2.";
   }
 
   function sentenceRule(audience, furigana) {
     var base = SENTENCE_RULES[audience] || SENTENCE_RULES["age-4-6"];
     var young = audience === "age-2-3" || audience === "age-4-6";
-    if (furigana && young) {
-      return base.replace(
-        /SCRIPT:[\s\S]*$/,
-        "SCRIPT: Furigana is ON. Use easy picture-book 漢字. EVERY 漢字 MUST be written as 漢字（ひらがな）, e.g. 朝（あさ）. Never output 漢字 without a reading. 擬音 stay カタカナ. Names stay as given."
-      );
-    }
-    if (furigana) {
-      return base + " Furigana is ON. EVERY 漢字 MUST be 漢字（ひらがな）. Example: 朝日（あさひ）. Close every parenthesis.";
-    }
-    return base;
+    if (young) return base;
+    if (!furigana) return base;
+    return base + " HARD: Furigana is ON. Every 漢字 word MUST be 漢字（ひらがな） per 熟語 (学校（がっこう）), not per 漢字 (学（がく）校（こう）). Never leave bare 漢字. Length counts the 漢字 only.";
   }
 
   var FULL_BLEED = "Edge-to-edge scene. Fill every pixel of the 3:4 canvas. Large readable figures. Environment continues off every edge. Never a book, never a page, never a white frame.";
@@ -480,8 +477,133 @@
     return {
       summary: plan.summary || "",
       who: plan.who || "",
-      length: plan.length || "80-240"
+      length: plan.length || "120-360"
     };
+  }
+
+  function pagePlaceOf(spread, index, total) {
+    var t = total || 12;
+    if ((spread && spread.role === "cover") || (spread && spread.scene === "cover")) {
+      return "表紙。題名と登場人物のなまえだけ。物語は書かない。";
+    }
+    if (index <= 1) {
+      return "物語の最初の出来事。日常の始まり（起床・身支度・道のあいさつ）ではなく、作者メモの現場から書く。";
+    }
+    if (index >= t - 2) {
+      return "物語の終わりに近い。すでに書いた右ページの直後から続ける。";
+    }
+    return "物語のつづき。すでに書いた右ページの直後から続ける。新しい話を始めない。";
+  }
+
+  function beatLabelOf(spread, index, total) {
+    var key = String((spread && spread.plan && spread.plan.key) || (spread && spread.scene) || "");
+    if ((spread && spread.role === "cover") || key === "cover") return "表紙";
+    if (/^(ki|day|morning|world|map|once|ask)([-_]|$)/.test(key)) return "起";
+    if (/^(sho|spark|go|meet|notice|try|noon|play)([-_]|$)/.test(key)) return "承";
+    if (/^(ten|fail|hard|bond|crisis|think|path|again)/.test(key)) return "転";
+    if (/^(ketsu|win|home|coda|learn|share|dream|night|evening)/.test(key)) return "結";
+    var t = total || 12;
+    var p = ((index || 0) + 1) / t;
+    if (p <= 0.28) return "起";
+    if (p <= 0.52) return "承";
+    if (p <= 0.82) return "転";
+    return "結";
+  }
+
+  function previousPagesBlock(book, index) {
+    var intent = (book && book.intent) || {};
+    var bible = (book && book.bible) || {};
+    var names = namesFrom(intent, bible);
+    var lines = [];
+    var spreads = (book && book.spreads) || [];
+    var i;
+    for (i = 0; i < index; i += 1) {
+      var body = (SBS.Story && SBS.Story.plainText)
+        ? SBS.Story.plainText(spreads[i] && spreads[i].paragraphs, names, { ruby: false })
+        : "";
+      body = String(body || "").replace(/\s+/g, " ").trim();
+      if (body) lines.push("p" + (i + 1) + "：" + body);
+    }
+    return lines.join("\n") || "（まだない。ここからこの本の物語を始める）";
+  }
+
+  function charactersLineOf(bible) {
+    return ((bible && bible.characters) || []).map(function (ch) {
+      var bits = [sanitize(ch.displayName, 20) || "(unnamed)"];
+      if (ch.roleLabel || ch.role) bits.push("role: " + (ch.roleLabel || ch.role));
+      if (ch.kindLabel || ch.kind) bits.push("kind: " + (ch.kindLabel || ch.kind));
+      var pers = SBS.personalityLine ? SBS.personalityLine(ch) : "";
+      if (pers) bits.push("personality: " + pers);
+      if (ch.originalityHit) bits.push("original design for this book, not a famous character");
+      return bits.join(", ");
+    }).join("; ") || "(no characters)";
+  }
+
+  function pageTextVars(book, spread, spreadIndex) {
+    var T = SBS.PromptTemplates;
+    var intent = (book && book.intent) || {};
+    var bible = (book && book.bible) || {};
+    var names = namesFrom(intent, bible);
+    var total = ((book && book.spreads) || []).length || 12;
+    var plan = pagePlanOf(spread);
+    var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
+    var structureLabel = structurePick.freeText
+      ? sanitize(structurePick.freeText, 800)
+      : (SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || structurePick.preset || "起承転結");
+    var creatorLock = (SBS.Originality && SBS.Originality.creatorLock) ||
+      "You are an original picture-book author. Write from the wizard facts only.";
+    var heroCh = ((bible && bible.characters) || []).filter(function (c) { return c.role === "hero"; })[0];
+    return {
+      STORY_SYSTEM: fill(T.storySystem, { CREATOR_LOCK: creatorLock }),
+      PAGE: pageToken(spread && spread.n).slice(1),
+      SPREAD_TOTAL: String(total),
+      TITLE: sanitize(intent.title || (book && book.title), 40),
+      THEME: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) ||
+        sanitize(intent.theme && intent.theme.freeText, 80) || "たいせつなこと",
+      SETTING: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.settings, intent.setting, intent.audience)) ||
+        sanitize(intent.setting && intent.setting.freeText, 80) || "まち",
+      AUDIENCE: intent.audience || "",
+      AUDIENCE_LABEL: SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience || "",
+      STRUCTURE: structureLabel,
+      HERO: names.hero,
+      HERO_PERSONALITY: (SBS.personalityLine && heroCh && SBS.personalityLine(heroCh)) || "(unspecified)",
+      CHARACTERS_LINE: charactersLineOf(bible),
+      FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
+      TEXT_DIRECTION: intent.textDirection || (book && book.textDirection) || "yoko",
+      FURIGANA: book && book.furigana ? "yes" : "no",
+      SENTENCE_RULE: sentenceRule(intent.audience, book && book.furigana),
+      LENGTH_RULE: "REQUIRED " + plan.length + " Japanese characters counted WITHOUT 漢字（ふりがな） readings (学校（がっこう）=2). Cover 10-80. Hard max " +
+        ((SBS.LIMITS && SBS.LIMITS.pageText) || 600) + " without furigana.",
+      RUBY_RULE: rubyRule(intent.audience, book && book.furigana),
+      BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
+      PAGE_BEAT: pagePlaceOf(spread, spreadIndex, total),
+      STORY_SPINE: String((book && book.storySpine) || "").trim() || "（指定メモだけから、この本の出来事を発明する）",
+      PREVIOUS_PAGES: previousPagesBlock(book, spreadIndex)
+    };
+  }
+
+  function wizardFactsBlock(book) {
+    var vars = pageTextVars(book, ((book && book.spreads) || [])[0] || { n: 1, role: "cover" }, 0);
+    return [
+      "【指定（ステップ1〜4だけ。これ以外は使わない）】",
+      "仮題名: " + vars.TITLE,
+      "テーマ: " + vars.THEME,
+      "舞台: " + vars.SETTING,
+      "読者: " + vars.AUDIENCE_LABEL,
+      "話の形: " + vars.STRUCTURE,
+      "組方向: " + vars.TEXT_DIRECTION,
+      "ふりがな: " + (vars.FURIGANA === "yes"
+        ? ((vars.AUDIENCE === "age-2-3" || vars.AUDIENCE === "age-4-6")
+          ? "あり（2〜6歳は漢字も漢字（ふりがな）も使わない）"
+          : "あり（熟語ごとに 学校（がっこう）。字数はふりがなを除く）")
+        : "なし"),
+      "文字の規則: " + vars.SENTENCE_RULE + vars.RUBY_RULE,
+      "主人公: " + vars.HERO + " / " + vars.HERO_PERSONALITY,
+      "登場人物: " + vars.CHARACTERS_LINE,
+      "",
+      "【作者メモ】",
+      vars.BRIEF_MARKDOWN
+    ].join("\n");
   }
 
   function extraPalette(ch) {
@@ -534,6 +656,38 @@
     return -1;
   }
 
+  var DOUBLE_CAST_RE = /分身|残像|二重写し|もうひとりの(自分|ぼく|わたし|おれ)|過去の自分|未来の自分|変身前.{0,12}変身後|同じ(人|子|キャラ|こ).{0,10}(二人|ふたり|複数)|二人の自分|ふたりの自分|before[\s-]*and[\s-]*after|doppelganger|two copies of (the )?same|the same (person|child|character).{0,24}(twice|two)/i;
+
+  function allowsDuplicateCast(text) {
+    return DOUBLE_CAST_RE.test(String(text || ""));
+  }
+
+  function castOnceRule(allowDouble) {
+    if (allowDouble) {
+      return "SPECIAL STAGING on this page only: the story explicitly asks for more than one body of the same identity. Draw that effect. Do not paste the six-view turnaround grid.";
+    }
+    return "HARD: one living body per identity ID. The story does not ask for a double. No twins, clones, extra silhouettes, reflections as a second body, before-and-after of the same person, or several angles of the same person.";
+  }
+
+  function poseRule() {
+    return "HARD ANATOMY: human and child bodies have natural joints. No broken spine, extra elbows or knees, backwards knees, twisted neck, 360° torso, pretzel limbs, floating disconnected arms, or impossible bending. Picture-book proportions are OK; unnatural body folding is not.";
+  }
+
+  function pageNegative(book, allowDouble) {
+    var base = String((book && book.prompts && book.prompts.negative) || "");
+    if (allowDouble) {
+      base = base
+        .replace(/duplicate of the same character,?\s*/gi, "")
+        .replace(/twins of one identity ID,?\s*/gi, "")
+        .replace(/cloned figure,?\s*/gi, "")
+        .replace(/extra copy of a named character,?\s*/gi, "");
+    }
+    if (!/unnatural human bending/.test(base)) {
+      base += " Do not depict unnatural human bending, extra joints, backwards knees, or a broken spine.";
+    }
+    return base;
+  }
+
   function characterRefLines(book, cast) {
     var chars = cast && cast.length
       ? cast
@@ -554,15 +708,58 @@
         " named \"" + sanitize(ch.promptName || ch.displayName, 40) +
         "\" (role: " + (ch.roleLabel || ch.role || "") +
         "). Copy this character exactly. Same ID means the same face, hair, clothes, species, and height. " +
-        "This sheet is several angles of ONE person. Draw ID " + ch.id + " exactly once."
+        "This sheet is several angles of ONE person. Draw ID " + ch.id +
+        " once unless this page's CAST rule allows special staging."
       );
     }
     if (!n) {
-      return "No attached character identity images. Follow the character lock text. HARD: never draw the same character twice.";
+      return "No attached character identity images. Follow the character lock text. Follow this page's CAST rule for one body vs special staging.";
     }
-    lines.push("HARD RULE: each attached image is a turnaround of ONE person. Draw that ID exactly once. Never copy the six-view grid. Never twins or clones.");
-    lines.push("People on this page: only the IDs above (max " + PAGE_CAST_MAX + "). One body per ID. Do not add other book characters. Do not redesign any ID.");
+    lines.push("Each attached image is a turnaround of ONE person. Copy the design, never the six-view grid. Follow this page's CAST rule for how many bodies of that ID.");
+    lines.push("People on this page: only the IDs above (max " + PAGE_CAST_MAX + "). Do not add other book characters. Do not redesign any ID.");
     return lines.join("\n");
+  }
+
+  function authorWantsTwinLook(ch) {
+    var t = [
+      ch && ch.displayName,
+      ch && ch.promptName,
+      ch && ch.kindLabel,
+      ch && ch.roleLabel,
+      ((ch && ch.mustKeep) || []).join(" ")
+    ].join(" ");
+    return /双子|ふたご|クローン|同じ姿|そっくり|twins?/i.test(t);
+  }
+
+  function distinctLock(book, charIndex) {
+    var chars = ((book && book.bible && book.bible.characters) || []);
+    var ch = chars[charIndex];
+    if (!ch) return "";
+    if (authorWantsTwinLook(ch)) {
+      return "The author asked this character to resemble another. Keep that request. Still do not paste another sheet's face unchanged.";
+    }
+    if (chars.length < 2) {
+      return "HARD UNIQUE IDENTITY: This sheet is one unique person for this book.";
+    }
+    var others = [];
+    var i;
+    var other;
+    for (i = 0; i < chars.length; i += 1) {
+      if (i === charIndex) continue;
+      other = chars[i];
+      others.push(
+        "ID " + other.id + " \"" + sanitize(other.promptName || other.displayName, 20) +
+        "\" (kind: " + (other.kindLabel || other.kind || "") +
+        ", clothes " + ((other.palette && other.palette.clothesPrimary) || "") + ")"
+      );
+    }
+    return "HARD UNIQUE IDENTITY: This sheet is ID " + ch.id + " \"" +
+      sanitize(ch.promptName || ch.displayName, 20) +
+      "\" only. Instantly different from every other character in this book: " +
+      others.join("; ") +
+      ". Different face shape, hair, silhouette, clothes, and signature detail. " +
+      "Same illustration medium is required. Same person, twins, or palette-swap clones are forbidden. " +
+      "If a style-lock image is attached, copy ONLY the paint touch. That attached person is someone else.";
   }
 
   function characterTurnaround(book, charIndex, extraNote) {
@@ -577,12 +774,25 @@
     });
     var note = sanitize(extraNote, 240) || "(none)";
     if (SBS.Originality && SBS.Originality.rewrite) note = SBS.Originality.rewrite(note) || note;
+    var style = (bible.styleLock || {});
+    var medium = style.medium || "watercolor";
     return fill(T.characterTurnaround, {
       STYLE_LOCK: (book.prompts && book.prompts.styleLock) || "",
+      STYLE_UNITY: "HARD STYLE UNITY: Every character sheet in this book must look painted by the same illustrator, same day. Same medium (" +
+        medium + "), same line, same coloring, same lighting. Face, clothes, hair, and species MUST differ from every other character. Do not give this character a different art style (no sudden 3D, photoreal, pixel, or another medium). If a style-lock image is attached, copy only that touch, never that other person's design.",
+      DISTINCT_LOCK: distinctLock(book, charIndex),
       ONE_CHARACTER_LOCK: lock,
       EXTRA_NOTE: note,
       NEGATIVE: (book.prompts && book.prompts.negative) || ""
     });
+  }
+
+  function listLock(value) {
+    if (Array.isArray(value) && value.length) {
+      return value.filter(Boolean).join("; ");
+    }
+    var text = String(value || "").trim();
+    return text || "none yet — first appearance locks the design for later pages";
   }
 
   function buildLocks(intent, bible) {
@@ -608,7 +818,12 @@
       SETTING_ID: settingId,
       GROUND_LINE: String(world.groundLine == null ? 0.82 : world.groundLine),
       PIXELS_PER_UNIT: String(world.pixelsPerUnit || 220),
-      RECURRING_PROPS: (world.recurringProps && world.recurringProps.length) ? world.recurringProps.join(", ") : "none"
+      KEY_ITEMS: listLock(world.recurringProps),
+      LANDMARKS: listLock(world.landmarks),
+      BACKDROP: String(world.backdrop || "").trim() ||
+        "same sky, ground, hour, and weather colors on every page",
+      EXTRAS: String(world.extras || "").trim() ||
+        "unnamed extras keep the same simple clothes and colors if they return"
     });
     var negative = fill(T.negative, {
       NEGATIVE: style.negative || "text-in-image"
@@ -629,27 +844,11 @@
       : issueId(intent);
     var locks = buildLocks(intent, bible);
     var names = namesFrom(intent, bible);
-    var themeLabel = SBS.labelOf(SBS.PRESETS.themes, intent.theme && intent.theme.preset) || sanitize(intent.theme && intent.theme.freeText, 80) || "たいせつなこと";
-    var settingLabel = SBS.labelOf(SBS.PRESETS.settings, intent.setting && intent.setting.preset) || sanitize(intent.setting && intent.setting.freeText, 80) || "まち";
-    var audienceLabel = SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience;
     var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: intent.structure || "", freeText: "" };
-    var structureLabel = structurePick.freeText
-      ? sanitize(structurePick.freeText, 800)
-      : (SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || structurePick.preset || "起承転結");
-    var charactersLine = ((bible && bible.characters) || []).map(function (ch) {
-      var bits = [sanitize(ch.displayName, 20) || "(unnamed)"];
-      if (ch.roleLabel || ch.role) bits.push("role: " + (ch.roleLabel || ch.role));
-      if (ch.kindLabel || ch.kind) bits.push("kind: " + (ch.kindLabel || ch.kind));
-      var pers = SBS.personalityLine ? SBS.personalityLine(ch) : "";
-      if (pers) bits.push("personality: " + pers);
-      if (ch.originalityHit) bits.push("original design for this book, not a famous character");
-      return bits.join(", ");
-    }).join("; ") || "(no characters)";
     var originalityLock = (SBS.Originality && SBS.Originality.imageLock) ||
       "Original characters only. Market-similar is OK. Exact famous characters are not.";
     var shared = {
       IMAGE_SYSTEM: fill(T.imageSystem, { ORIGINALITY_LOCK: originalityLock }),
-      STORY_SYSTEM: T.storySystem,
       STYLE_LOCK: locks.styleLock,
       CHARACTER_LOCK: locks.characterLock,
       WORLD_LOCK: locks.worldLock,
@@ -662,13 +861,17 @@
       var plan = pagePlanOf(spread);
       var body = String(storyText || "").replace(/\s+/g, " ").trim();
       var cast = selectPageCast(book, spreadIndex, PAGE_CAST_MAX, body);
+      var allowDouble = allowsDuplicateCast(body) || allowsDuplicateCast(plan.summary) ||
+        allowsDuplicateCast(intent.briefMarkdown || (intent.plotHook || ""));
       return fill(T.pageImage, {
         IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
         STYLE_LOCK: shared.STYLE_LOCK,
         CHARACTER_LOCK: shared.CHARACTER_LOCK,
         CHARACTER_REFS: characterRefLines(book, cast),
         WORLD_LOCK: shared.WORLD_LOCK,
-        NEGATIVE: shared.NEGATIVE,
+        CAST_ONCE_RULE: castOnceRule(allowDouble),
+        POSE_RULE: poseRule(),
+        NEGATIVE: pageNegative(book, allowDouble),
         PAGE: page.slice(1),
         SPREAD_TOTAL: String((book.spreads || []).length || 12),
         SCENE: scene,
@@ -684,39 +887,11 @@
     var characterSheet = fill(T.characterSheet, shared);
     var pages = (book.spreads || []).map(function (spread, spreadIndex) {
       var scene = spread.scene || "day";
-      var copy = SCENE_COPY[scene] || SCENE_COPY.day;
       var page = pageToken(spread.n);
-      var currentText = SBS.Story.plainText(spread.paragraphs, names);
+      var currentText = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
       var image = fillPageImage(spread, currentText, spreadIndex);
-      var text = fill(T.pageText, {
-        STORY_SYSTEM: shared.STORY_SYSTEM,
-        PAGE: page.slice(1),
-        SPREAD_TOTAL: String((book.spreads || []).length || 12),
-        TITLE: sanitize(intent.title || book.title, 40),
-        THEME: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) || themeLabel,
-        SETTING: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.settings, intent.setting, intent.audience)) || settingLabel,
-        AUDIENCE: intent.audience || "",
-        AUDIENCE_LABEL: audienceLabel,
-        STRUCTURE: structureLabel,
-        SCENE: scene,
-        PAGE_PLAN: pagePlanOf(spread).summary || copy.direction,
-        PAGE_WHO: pagePlanOf(spread).who || whoFor(scene, names, bible),
-        HERO: names.hero,
-        HERO_PERSONALITY: (function () {
-          var heroCh = ((bible && bible.characters) || []).filter(function (c) { return c.role === "hero"; })[0];
-          return (SBS.personalityLine && heroCh && SBS.personalityLine(heroCh)) || "(unspecified)";
-        }()),
-        CHARACTERS_LINE: charactersLine,
-        FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
-        TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
-        FURIGANA: book.furigana ? "yes" : "no",
-        SENTENCE_RULE: sentenceRule(intent.audience, book.furigana),
-        LENGTH_RULE: pagePlanOf(spread).length + " Japanese characters. Cover may be 10-60. Do not force 180.",
-        RUBY_RULE: rubyRule(intent.audience, book.furigana),
-        BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
-        SCENE_DIRECTION: pagePlanOf(spread).summary || copy.direction,
-        CURRENT_TEXT: currentText || "(empty placeholder)"
-      });
+      var text = fill(T.pageText, pageTextVars(book, spread, spreadIndex));
+      var beat = beatLabelOf(spread, spreadIndex, (book.spreads || []).length);
       return {
         n: spread.n,
         page: page,
@@ -724,7 +899,7 @@
         role: spread.role,
         image: image,
         text: text,
-        summary: pagePlanOf(spread).summary || copy.direction
+        summary: beat
       };
     });
 
@@ -825,13 +1000,17 @@
       : "";
     var body = String(storyText || "").replace(/\s+/g, " ").trim();
     var cast = selectPageCast(book, index, PAGE_CAST_MAX, body);
+    var allowDouble = allowsDuplicateCast(body) || allowsDuplicateCast(plan.summary) ||
+      allowsDuplicateCast((intent.briefMarkdown || intent.plotHook || ""));
     page.image = fill(T.pageImage, {
       IMAGE_SYSTEM: shared.IMAGE_SYSTEM,
       STYLE_LOCK: shared.STYLE_LOCK,
       CHARACTER_LOCK: shared.CHARACTER_LOCK,
       CHARACTER_REFS: characterRefLines(book, cast),
       WORLD_LOCK: shared.WORLD_LOCK,
-      NEGATIVE: shared.NEGATIVE,
+      CAST_ONCE_RULE: castOnceRule(allowDouble),
+      POSE_RULE: poseRule(),
+      NEGATIVE: pageNegative(book, allowDouble),
       PAGE: pageToken(spread.n).slice(1),
       SPREAD_TOTAL: String((book.spreads || []).length || 12),
       SCENE: scene,
@@ -858,51 +1037,34 @@
     var page = book.prompts.pages[index];
     if (!spread || !page) return "";
     var T = SBS.PromptTemplates;
-    var intent = book.intent || {};
-    var bible = book.bible || {};
-    var names = namesFrom(intent, bible);
-    var structurePick = SBS.structureOf ? SBS.structureOf(intent) : { preset: "", freeText: "" };
-    var structureLabel = structurePick.freeText
-      ? sanitize(structurePick.freeText, 800)
-      : (SBS.labelOf(SBS.PRESETS.structures, structurePick.preset) || "起承転結");
-    var charactersLine = ((bible.characters) || []).map(function (ch) {
-      var bits = [sanitize(ch.displayName, 20) || "(unnamed)"];
-      if (ch.roleLabel || ch.role) bits.push("role: " + (ch.roleLabel || ch.role));
-      return bits.join(", ");
-    }).join("; ");
-    var copy = SCENE_COPY[spread.scene] || SCENE_COPY.day;
-    var plan = pagePlanOf(spread);
-    page.text = fill(T.pageText, {
-      STORY_SYSTEM: T.storySystem,
-      PAGE: pageToken(spread.n).slice(1),
-      SPREAD_TOTAL: String((book.spreads || []).length || 12),
-      TITLE: sanitize(intent.title || book.title, 40),
-      THEME: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) ||
-        sanitize(intent.theme && intent.theme.freeText, 80) || "たいせつなこと",
-      SETTING: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.settings, intent.setting, intent.audience)) ||
-        sanitize(intent.setting && intent.setting.freeText, 80) || "まち",
-      AUDIENCE: intent.audience || "",
-      AUDIENCE_LABEL: SBS.labelOf(SBS.PRESETS.audiences, intent.audience) || intent.audience,
-      STRUCTURE: structureLabel,
-      PAGE_PLAN: plan.summary || copy.direction,
-      PAGE_WHO: plan.who || whoFor(spread.scene, names, bible),
-      HERO: names.hero,
-      HERO_PERSONALITY: (function () {
-        var heroCh = (bible.characters || []).filter(function (c) { return c.role === "hero"; })[0];
-        return (SBS.personalityLine && heroCh && SBS.personalityLine(heroCh)) || "(unspecified)";
-      }()),
-      CHARACTERS_LINE: charactersLine,
-      FRIEND_LINE: names.friend ? "Friend: " + names.friend : "Friend: (none)",
-      TEXT_DIRECTION: intent.textDirection || book.textDirection || "yoko",
-      FURIGANA: book.furigana ? "yes" : "no",
-      SENTENCE_RULE: sentenceRule(intent.audience, book.furigana),
-      LENGTH_RULE: plan.length + " Japanese characters. Cover may be 10-60. Do not force 180.",
-      RUBY_RULE: rubyRule(intent.audience, book.furigana),
-      BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
-      CURRENT_TEXT: "(empty placeholder)"
-    });
-    page.summary = plan.summary || page.summary;
+    page.text = fill(T.pageText, pageTextVars(book, spread, index));
+    page.summary = beatLabelOf(spread, index, book.spreads.length);
+    if (book.prompts.files && book.prompts.files.length) {
+      var needle = "_" + page.page + ".text.prompt.txt";
+      book.prompts.files.forEach(function (file) {
+        if (file.path && file.path.indexOf(needle) !== -1) file.data = page.text;
+      });
+    }
     return page.text;
+  }
+
+  function refreshAllPageImage(book) {
+    if (!book || !book.spreads) return;
+    book.spreads.forEach(function (_, i) {
+      refreshPageImage(book, i);
+    });
+  }
+
+  function refreshWorldLock(book) {
+    if (!book || !book.intent || !book.bible || !book.prompts) return;
+    var locks = buildLocks(book.intent, book.bible);
+    book.prompts.worldLock = locks.worldLock;
+    if (book.prompts.files && book.prompts.files.length) {
+      book.prompts.files.forEach(function (file) {
+        if (file.path && /world-lock\.txt$/.test(file.path)) file.data = locks.worldLock;
+      });
+    }
+    refreshAllPageImage(book);
   }
 
   function refreshAllPageText(book) {
@@ -925,12 +1087,18 @@
     issueId: issueId,
     compile: compile,
     refreshPageImage: refreshPageImage,
+    refreshAllPageImage: refreshAllPageImage,
     refreshPageText: refreshPageText,
     refreshAllPageText: refreshAllPageText,
+    refreshWorldLock: refreshWorldLock,
     characterTurnaround: characterTurnaround,
     characterRefLines: characterRefLines,
     selectPageCast: selectPageCast,
     pageCastMax: PAGE_CAST_MAX,
+    beatLabel: beatLabelOf,
+    pagePlace: pagePlaceOf,
+    wizardFacts: wizardFactsBlock,
+    previousPages: previousPagesBlock,
     downloadZip: downloadZip
   };
 

@@ -175,6 +175,94 @@
     return n;
   }
 
+  var assembleTick = null;
+  var assembleState = null;
+
+  function stopAssembleTick() {
+    if (assembleTick) {
+      window.clearInterval(assembleTick);
+      assembleTick = null;
+    }
+  }
+
+  function updateGenProgress(done, total, message, unit) {
+    var safeTotal = total > 0 ? total : 1;
+    var raw = Number(done) || 0;
+    var safeDone = Math.max(0, Math.min(raw, safeTotal));
+    var pages = Math.min(safeTotal, Math.max(0, Math.floor(safeDone + 1e-6)));
+    var pct = Math.round((safeDone / safeTotal) * 100);
+    var msg = $("gen-message");
+    var fill = $("gen-progress-fill");
+    var meta = $("gen-progress-meta");
+    var bar = $("gen-progress");
+    if (msg && message) msg.textContent = message;
+    if (bar) {
+      bar.hidden = false;
+      bar.setAttribute("aria-valuenow", String(pct));
+      bar.setAttribute("aria-valuemax", "100");
+    }
+    if (fill) fill.style.width = pct + "%";
+    if (meta) {
+      meta.textContent = pct + "%　完成 " + pages + "／" + safeTotal + (unit || " ページ");
+    }
+  }
+
+  function startAssembleTick(total, message) {
+    stopAssembleTick();
+    assembleState = {
+      total: total > 0 ? total : 1,
+      floor: 0,
+      shown: 0,
+      message: message || "",
+      started: Date.now()
+    };
+    assembleTick = window.setInterval(function () {
+      var st = assembleState;
+      if (!st) return;
+      var sec = (Date.now() - st.started) / 1000;
+      var eased = st.total * 0.86 * (1 - Math.exp(-sec / 15));
+      if (eased > st.shown) st.shown = eased;
+      if (st.floor >= st.total) {
+        st.shown = st.total;
+        updateGenProgress(st.total, st.total, st.message, " ページ");
+        stopAssembleTick();
+        return;
+      }
+      var next = Math.max(st.floor, st.shown);
+      if (next >= st.total - 0.35) next = st.total - 0.35;
+      updateGenProgress(next, st.total, st.message, " ページ");
+    }, 320);
+  }
+
+  function noteAssembleProgress(done, total, message) {
+    var st = assembleState;
+    var safeTotal = total > 0 ? total : (st && st.total) || 1;
+    var safeDone = Math.max(0, Number(done) || 0);
+    if (!st) {
+      updateGenProgress(safeDone, safeTotal, message, " ページ");
+      return;
+    }
+    if (message) st.message = message;
+    if (safeTotal) st.total = safeTotal;
+    if (safeDone > st.floor) st.floor = safeDone;
+    if (safeDone > st.shown) st.shown = safeDone;
+    if (st.floor >= st.total) {
+      st.shown = st.total;
+      updateGenProgress(st.total, st.total, st.message, " ページ");
+      stopAssembleTick();
+      return;
+    }
+    updateGenProgress(Math.max(st.floor, st.shown), st.total, st.message, " ページ");
+  }
+
+  function showGenerating(opts) {
+    opts = opts || {};
+    var titleEl = $("gen-title");
+    if (titleEl && opts.title) titleEl.textContent = opts.title;
+    showScreen("generating");
+    updateGenProgress(opts.done || 0, opts.total || 1, opts.message || "", opts.unit);
+  }
+
   function startWizard(seed) {
     showScreen("wizard");
     SBS.Wizard.start(seed);
@@ -187,25 +275,35 @@
   var reviewBook = null;
 
   function writeThenReview(nextBook) {
-    showScreen("generating");
     var writingTitle = nextBook && nextBook.title ? String(nextBook.title) : "";
-    $("gen-message").textContent = writingTitle
+    var pageTotal = (nextBook.spreads || []).length || 1;
+    var assembleMsg = writingTitle
       ? "『" + writingTitle + "』のおはなしを書いています"
       : "おはなしを書いています";
-    SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), (nextBook.spreads || []).length);
+    showGenerating({
+      title: "いま、絵本を組み立てています。",
+      message: assembleMsg,
+      done: 0,
+      total: pageTotal,
+      unit: " ページ"
+    });
+    startAssembleTick(pageTotal, assembleMsg);
+    SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), pageTotal);
     var writer = (SBS.Gemini && SBS.Gemini.writeBook) ? SBS.Gemini.writeBook : function (book, onP, onD) {
       if (onD) onD(book, "complete");
     };
     writer(nextBook, function (done, total, message) {
-      $("gen-message").textContent = message;
-      SBS.LibraryIO.sessionSave(nextBook, "running", done, total);
+      noteAssembleProgress(done, total, message);
+      SBS.LibraryIO.sessionSave(nextBook, "running", Math.floor(done || 0), total);
     }, function (finished, status) {
+      stopAssembleTick();
       if (status === "interrupted") {
         SBS.LibraryIO.sessionSave(finished, "interrupted", doneCount(finished), (finished.spreads || []).length);
         showScreen("home");
         refreshResume();
         return;
       }
+      persistBook(finished);
       showTextReview(finished);
     });
   }
@@ -219,12 +317,27 @@
     if (SBS.Wizard && SBS.Wizard.attachBook) SBS.Wizard.attachBook();
     var host = $("text-review-list");
     var err = $("text-review-error");
-    if (err) {
-      err.hidden = true;
-      err.textContent = "";
-    }
     if (!host) return;
     host.innerHTML = "";
+    var titleNote = $("text-review-title-note");
+    if (titleNote && book && book.title) {
+      titleNote.textContent = "文章はステップ4までの指定だけから書き、題名は本文から『" + book.title +
+        "』に直しました。右ページを直してから、登場人物の見た目を確認します。" +
+        (book.furigana && book.intent && book.intent.audience !== "age-2-3" && book.intent.audience !== "age-4-6"
+          ? "ふりがなは絵本のルビで出します。確認欄には（ふりがな）を書かないでください。字数は漢字だけです。"
+          : book.intent && (book.intent.audience === "age-2-3" || book.intent.audience === "age-4-6")
+            ? "2〜6歳の本文はひらがなだけです。漢字や 漢字（ふりがな） は使いません。"
+            : "");
+    }
+    if (err) {
+      if (book && book.textWriteNote) {
+        err.hidden = false;
+        err.textContent = book.textWriteNote;
+      } else {
+        err.hidden = true;
+        err.textContent = "";
+      }
+    }
     var names = {};
     var bible = book.bible || { characters: [] };
     (bible.characters || []).forEach(function (ch) {
@@ -235,26 +348,36 @@
       names.hero = names.hero || book.intent.characters[0].name || "";
     }
     names.friend = names.friend || "";
-    var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 400;
+    var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 600;
+    var young = book.intent && (book.intent.audience === "age-2-3" || book.intent.audience === "age-4-6");
     (book.spreads || []).forEach(function (spread, i) {
       var wrap = document.createElement("article");
       wrap.className = "text-review-item";
       var label = document.createElement("label");
+      var bounds = SBS.Story && SBS.Story.parseBounds
+        ? SBS.Story.parseBounds(spread.plan && spread.plan.length)
+        : { lo: 0, hi: 0 };
+      var range = bounds.lo && bounds.hi ? "　目安 " + bounds.lo + "〜" + bounds.hi + "字" : "";
       label.className = "block-label";
-      label.textContent = "右ページ " + (i * 2 + 2) + "（見開き" + spread.n + "）" +
-        (book.furigana ? "　ふりがなは 漢字（ひらがな） の形で書いてください" : "");
+      label.textContent = "右ページ " + (i * 2 + 2) + "（見開き" + spread.n + "）" + range +
+        (book.furigana && !young ? "　ふりがなは絵本のルビ。ここには（ふりがな）を書かないでください" : "");
       var ta = document.createElement("textarea");
       ta.id = "review-text-" + i;
-      ta.rows = 6;
-      ta.maxLength = cap;
-      ta.value = SBS.Story.plainText(spread.paragraphs, names);
+      ta.rows = bounds.hi && bounds.hi > 180 ? 10 : 6;
+      ta.maxLength = book.furigana && !young ? cap * 2 : cap;
+      ta.value = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
       label.appendChild(ta);
       var count = document.createElement("p");
       count.className = "text-review-count";
-      count.textContent = ta.value.length + " / " + cap + "字";
-      ta.addEventListener("input", function () {
-        count.textContent = ta.value.length + " / " + cap + "字";
-      });
+      function showCount() {
+        var n = SBS.Story && SBS.Story.countStoryChars
+          ? SBS.Story.countStoryChars(ta.value)
+          : ta.value.replace(/\s+/g, "").length;
+        count.textContent = n + "字" + range + "　上限 " + cap + "字" +
+          (book.furigana && !young ? "（ふりがなを除く）" : "");
+      }
+      showCount();
+      ta.addEventListener("input", showCount);
       wrap.appendChild(label);
       wrap.appendChild(count);
       host.appendChild(wrap);
@@ -263,7 +386,7 @@
   }
 
   function applyTextReview(book) {
-    var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 400;
+    var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 600;
     var empty = false;
     var names = {};
     var bible = (book && book.bible) || { characters: [] };
@@ -275,13 +398,32 @@
       names.hero = names.hero || book.intent.characters[0].name || "";
     }
     names.friend = names.friend || "";
+    var bookMap = (SBS.Story && SBS.Story.bookReadingMap) ? SBS.Story.bookReadingMap(book) : {};
     (book.spreads || []).forEach(function (spread, i) {
       var ta = $("review-text-" + i);
       if (!ta) return;
       var text = String(ta.value || "").trim();
+      var young = book.intent && (book.intent.audience === "age-2-3" || book.intent.audience === "age-4-6");
+      var kept = SBS.Story.readingMap ? SBS.Story.readingMap(spread.paragraphs) : {};
+      Object.keys(bookMap).forEach(function (key) {
+        if (!kept[key]) kept[key] = bookMap[key];
+      });
+      if (young) text = text.replace(/[\u4e00-\u9fff]+[（(]([ぁ-ゖァ-ヶー]+)[）)]/g, "$1");
+      else if (book.furigana && SBS.Story) {
+        if (SBS.Story.mergeKanjiRuby) text = SBS.Story.mergeKanjiRuby(text);
+        if (SBS.Story.injectReadings) text = SBS.Story.injectReadings(text, kept);
+      }
+      if (spread.role === "cover") {
+        text = text.split(/\n+/).filter(function (line) {
+          return line.trim() && !/さく\s*[・･／\/]\s*え|作\s*[・･／\/]\s*絵|オリジナルさっか|さっか|作者クレジット/.test(line);
+        }).join("\n");
+      }
       if (!text) empty = true;
       var prev = SBS.Story.plainText(spread.paragraphs, names, { ruby: false }).replace(/\s+/g, " ").trim();
       spread.paragraphs = SBS.Story.fromPlainText(text, cap);
+      if (book.furigana && SBS.Story.applyReadings) {
+        spread.paragraphs = SBS.Story.applyReadings(spread.paragraphs, kept);
+      }
       spread.geminiTextDone = true;
       var next = SBS.Story.plainText(spread.paragraphs, names, { ruby: false }).replace(/\s+/g, " ").trim();
       if (prev !== next) spread.textEdited = true;
@@ -299,14 +441,20 @@
   }
 
   function reviewCharactersAndOpen(nextBook) {
-    showScreen("generating");
-    $("gen-message").textContent = "キャラクターデザインを描いています";
+    var charTotal = ((nextBook.bible && nextBook.bible.characters) || []).length || 1;
+    showGenerating({
+      title: "キャラクターデザインを描いています",
+      message: "キャラクターデザインを描いています",
+      done: 0,
+      total: charTotal,
+      unit: " 人"
+    });
     SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), (nextBook.spreads || []).length);
     var painter = (SBS.Gemini && SBS.Gemini.paintCharacterSheets)
       ? SBS.Gemini.paintCharacterSheets
       : SBS.DemoArt.paintCharacterSheets;
     painter(nextBook, function (done, total, message) {
-      $("gen-message").textContent = message;
+      updateGenProgress(done, total, message, " 人");
       SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), (nextBook.spreads || []).length);
     }, function (finished, status) {
       if (status === "interrupted") {
@@ -450,18 +598,27 @@
     var busy = $("char-busy-" + index);
     if (busy) busy.hidden = false;
     setCharBusy(true);
+    showGenerating({
+      title: "キャラクターデザインを描いています",
+      message: "キャラクターデザインを描いています",
+      done: 0,
+      total: 1,
+      unit: " 人"
+    });
     var painter = (SBS.Gemini && SBS.Gemini.paintCharacterSheet)
       ? SBS.Gemini.paintCharacterSheet
       : function (book, i, extra, onP, onD) {
         SBS.DemoArt.paintCharacterSheet(book, i, extra);
+        if (onP) onP(1, 1, "描き直しています");
         if (onD) onD(book, "complete");
       };
     painter(reviewBook, index, note, function (done, total, message) {
+      updateGenProgress(done, total || 1, message, " 人");
       if (busy) busy.textContent = message || "描き直しています…";
     }, function (finished) {
       reviewBook = finished;
       setCharBusy(false);
-      renderCharReview(finished);
+      showCharReview(finished);
       persistBook(finished);
       SBS.LibraryIO.sessionSave(finished, "running", doneCount(finished), (finished.spreads || []).length);
     });
@@ -499,12 +656,18 @@
   }
 
   function paintImagesAndOpen(nextBook) {
-    showScreen("generating");
-    $("gen-message").textContent = "絵を描いています";
-    SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), (nextBook.spreads || []).length);
+    var pageTotal = (nextBook.spreads || []).length || 1;
+    showGenerating({
+      title: "絵本をつくっています",
+      message: "絵を描いています",
+      done: doneCount(nextBook),
+      total: pageTotal,
+      unit: " ページ"
+    });
+    SBS.LibraryIO.sessionSave(nextBook, "running", doneCount(nextBook), pageTotal);
     var painter = (SBS.Gemini && SBS.Gemini.paintImages) ? SBS.Gemini.paintImages : SBS.DemoArt.paintBook;
     painter(nextBook, function (done, total, message) {
-      $("gen-message").textContent = message;
+      updateGenProgress(done, total, message, " ページ");
       SBS.LibraryIO.sessionSave(nextBook, "running", done, total);
     }, function (finished, status) {
       var total = (finished.spreads || []).length;
@@ -559,7 +722,7 @@
       }
     ];
     var seed = seeds[Math.floor(Math.random() * seeds.length)];
-    seed.furigana = seed.audience === "age-2-3" || seed.audience === "age-4-6";
+    seed.furigana = false;
     seed.textDirection = "yoko";
     return SBS.intentFromSeed(seed);
   }
@@ -578,11 +741,20 @@
   }
 
   function openBook(intent) {
-    showScreen("generating");
     var title = intent && intent.title ? String(intent.title) : "";
-    $("gen-message").textContent = title
-      ? "『" + title + "』のおはなしを書いています"
-      : "おはなしを書いています";
+    var pages = SBS.normalizePageCount
+      ? SBS.normalizePageCount((intent && intent.pageCount) || (SBS.getPageCount && SBS.getPageCount()) || 12)
+      : 12;
+    var pageGuess = SBS.spreadCountOf ? SBS.spreadCountOf(pages) : Math.round(pages / 2);
+    showGenerating({
+      title: "いま、絵本を組み立てています。",
+      message: title
+        ? "『" + title + "』のおはなしを書いています"
+        : "おはなしを書いています",
+      done: 0,
+      total: pageGuess || 6,
+      unit: " ページ"
+    });
     window.setTimeout(function () {
       try {
         var bible = SBS.Bible.fromIntent(intent);
@@ -681,8 +853,13 @@
       return;
     }
     redrawing = true;
-    showScreen("generating");
-    $("gen-message").textContent = "このページの絵を描き直しています";
+    showGenerating({
+      title: "絵本をつくっています",
+      message: "このページの絵を描き直しています",
+      done: 0,
+      total: 1,
+      unit: " ページ"
+    });
     var painter = (SBS.Gemini && SBS.Gemini.paintSpread)
       ? SBS.Gemini.paintSpread
       : function (book, i, onProgress, onDone) {
@@ -690,7 +867,7 @@
         if (onDone) onDone(book, "complete");
       };
     painter(current, idx, function (done, total, message) {
-      $("gen-message").textContent = message;
+      updateGenProgress(done, total || 1, message, " ページ");
     }, function (finished, status) {
       redrawing = false;
       persistBook(finished);
@@ -928,8 +1105,31 @@
           return;
         }
         persistBook(reviewBook);
-        if (sheetsReady(reviewBook)) showCharReview(reviewBook);
-        else reviewCharactersAndOpen(reviewBook);
+        function afterRuby() {
+          persistBook(reviewBook);
+          if (sheetsReady(reviewBook)) showCharReview(reviewBook);
+          else reviewCharactersAndOpen(reviewBook);
+        }
+        if (SBS.Story && SBS.Story.wantsRuby && SBS.Story.wantsRuby(reviewBook) &&
+            SBS.Gemini && SBS.Gemini.fillMissingReadings) {
+          var need = (reviewBook.spreads || []).some(function (spread) {
+            return SBS.Story.unmarkedKanji && SBS.Story.unmarkedKanji(spread.paragraphs).length;
+          });
+          if (need) {
+            showGenerating({
+              title: "ふりがなを付けています",
+              message: "漢字にふりがなを付けています",
+              done: 0,
+              total: (reviewBook.spreads || []).length,
+              unit: " ページ"
+            });
+            SBS.Gemini.fillMissingReadings(reviewBook, function (done, total) {
+              updateGenProgress(done, total, "漢字にふりがなを付けています", " ページ");
+            }).then(afterRuby);
+            return;
+          }
+        }
+        afterRuby();
       });
     }
     if ($("btn-char-review-back")) {
@@ -957,6 +1157,7 @@
       });
     }
     $("btn-gen-cancel").addEventListener("click", function () {
+      stopAssembleTick();
       if (SBS.Gemini) SBS.Gemini.cancelPaint();
       else SBS.DemoArt.cancelPaint();
     });
@@ -1120,7 +1321,14 @@
       var hint = $("print-hint");
       document.body.classList.toggle("print-kind-booklet", kind === "booklet");
       document.body.classList.toggle("print-kind-spread", kind !== "booklet");
-      if (book) SBS.Export.renderPrint($("print-pages"), book, kind);
+      if (book) {
+        SBS.Export.renderPrint($("print-pages"), book, kind);
+        if (SBS.PageFit) {
+          SBS.PageFit.afterLayout(function () {
+            SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
+          });
+        }
+      }
       if (!hint) return;
       var pageCount = (book && (book.pageCount || ((book.spreads || []).length * 2))) || (SBS.getPageCount ? SBS.getPageCount() : 12);
       var bookletLabel = $("print-booklet-label");
@@ -1139,7 +1347,18 @@
     });
     $("btn-print-run").addEventListener("click", function () {
       applyPrintKind();
+      if (SBS.PageFit) {
+        SBS.PageFit.afterLayout(function () {
+          SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
+          window.print();
+        });
+        return;
+      }
       window.print();
+    });
+    window.addEventListener("beforeprint", function () {
+      if (!document.body.classList.contains("print-mode") || !SBS.PageFit) return;
+      SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
     });
     $("btn-print-pdf").addEventListener("click", function () {
       var current = SBS.Viewer.current();

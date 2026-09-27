@@ -8,7 +8,7 @@
     dedication: 80,
     maxCharacters: 5,
     personalityMax: 3,
-    pageText: 400
+    pageText: 600
   };
 
   var PAGE_KEY = "sbs-page-count";
@@ -59,8 +59,8 @@
       { id: "its-ok", label: "失敗しても大丈夫", kana: "しっぱいしてもだいじょうぶ", kana79: "しっぱいしてもだいじょうぶ" }
     ],
     audiences: [
-      { id: "age-2-3", label: "2〜3歳", furiganaDefault: true },
-      { id: "age-4-6", label: "4〜6歳", furiganaDefault: true },
+      { id: "age-2-3", label: "2〜3歳", furiganaDefault: false },
+      { id: "age-4-6", label: "4〜6歳", furiganaDefault: false },
       { id: "age-7-9", label: "7〜9歳", furiganaDefault: false },
       { id: "age-10-12", label: "10〜12歳", furiganaDefault: false },
       { id: "age-13-15", label: "13〜15歳", furiganaDefault: false },
@@ -142,7 +142,7 @@
     settingFree: "",
     mood: "watercolor",
     textDirection: "yoko",
-    furigana: true,
+    furigana: false,
     title: "くうのゆうき",
     dedication: "",
     characters: [
@@ -644,9 +644,9 @@
     var list = SBS.PRESETS.audiences;
     var i;
     for (i = 0; i < list.length; i += 1) {
-      if (list[i].id === audienceId) return list[i].furiganaDefault !== false;
+      if (list[i].id === audienceId) return !!list[i].furiganaDefault;
     }
-    return true;
+    return false;
   }
 
   function omakaseAudience(pack) {
@@ -783,7 +783,7 @@
         ? { preset: seed.mood.preset || "", freeText: seed.mood.freeText || "" }
         : { preset: seed.mood || "", freeText: seed.moodFree || "" },
       textDirection: seed.textDirection || "yoko",
-      furigana: seed.furigana !== false,
+      furigana: seed.furigana === true,
       title: seed.title || "",
       dedication: seed.dedication || "",
       pageCount: SBS.normalizePageCount(seed.pageCount || (SBS.getPageCount && SBS.getPageCount()) || 12),
