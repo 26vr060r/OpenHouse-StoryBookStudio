@@ -973,7 +973,9 @@
 
   SBS.personalityLine = function personalityLine(ch) {
     var labels = [];
-    ((ch && ch.personality) || []).forEach(function (id) {
+    var raw = ch && ch.personality;
+    var ids = Array.isArray(raw) ? raw : [];
+    ids.forEach(function (id) {
       var label = SBS.labelOf(SBS.PRESETS.personalities, id);
       if (label) labels.push(label);
     });

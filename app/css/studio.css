@@ -236,6 +236,23 @@ button {
   color: var(--ink);
 }
 
+#reuse-dialog {
+  max-width: min(36rem, calc(100vw - 24px));
+}
+
+#redraw-dialog {
+  max-width: min(28rem, calc(100vw - 24px));
+}
+
+#redraw-dialog textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+#reuse-dialog.reuse-dialog-preview {
+  max-width: min(42rem, calc(100vw - 24px));
+}
+
 .dialog::backdrop {
   background: rgba(58, 42, 34, 0.4);
 }
@@ -1110,4 +1127,93 @@ body.kiosk .consent-master {
 
 .empty-library[hidden] {
   display: none !important;
+}
+
+.reuse-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reuse-status {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.reuse-dialog-body {
+  max-width: 36rem;
+}
+
+.reuse-list {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+}
+
+.reuse-card {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #eadfce;
+  border-radius: 10px;
+  background: #fffdf8;
+}
+
+.reuse-card.is-taken {
+  opacity: 0.55;
+}
+
+.reuse-card-thumb {
+  position: relative;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: #f3ebe0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.reuse-card-thumb img,
+.reuse-preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #f3ebe0;
+}
+
+.reuse-card-zoom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  color: #fff;
+  background: rgba(80, 40, 30, 0.55);
+}
+
+.reuse-card-name,
+.reuse-preview-name {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.reuse-card-meta {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.reuse-dialog-preview {
+  max-width: 42rem;
 }

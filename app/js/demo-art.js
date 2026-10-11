@@ -446,6 +446,7 @@
       return url;
     },
     paintCharacterSheets: function paintCharacterSheets(book, onProgress, onDone) {
+      if (SBS.Reuse && SBS.Reuse.attachSheets) SBS.Reuse.attachSheets(book);
       var chars = (book && book.bible && book.bible.characters) || [];
       var i;
       paintToken.cancel = false;

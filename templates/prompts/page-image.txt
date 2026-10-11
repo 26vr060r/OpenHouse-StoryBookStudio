@@ -16,6 +16,7 @@ People in the scene: {{WHO}}
 Composition: {{COMPOSITION}}
 Cast rule: {{CAST_ONCE_RULE}}
 Pose rule: {{POSE_RULE}}
+{{REDRAW_NOTE}}
 
 Technical:
 - {{CANVAS_SPEC}}

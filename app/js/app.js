@@ -291,10 +291,37 @@
 
   function showGenerating(opts) {
     opts = opts || {};
+    stopAssembleTick();
     var titleEl = $("gen-title");
     if (titleEl && opts.title) titleEl.textContent = opts.title;
     showScreen("generating");
     updateGenProgress(opts.done || 0, opts.total || 1, opts.message || "", opts.unit);
+  }
+
+  function startRedrawTick(message) {
+    stopAssembleTick();
+    assembleState = {
+      total: 1,
+      floor: 0,
+      shown: 0,
+      message: message || "このページの絵を描き直しています",
+      started: Date.now()
+    };
+    assembleTick = window.setInterval(function () {
+      var st = assembleState;
+      if (!st) return;
+      var sec = (Date.now() - st.started) / 1000;
+      var eased = 0.78 * (1 - Math.exp(-sec / 2.2));
+      if (eased > st.shown) st.shown = eased;
+      if (st.floor >= 1) {
+        updateGenProgress(1, 1, st.message, " ページ");
+        stopAssembleTick();
+        return;
+      }
+      var next = Math.max(st.floor, st.shown);
+      if (next > 0.9) next = 0.9;
+      updateGenProgress(next, 1, st.message, " ページ");
+    }, 200);
   }
 
   function startWizard(seed) {
@@ -309,6 +336,7 @@
   }
 
   function proceedCreate(kind) {
+    if (SBS.Reuse && SBS.Reuse.allowSession) SBS.Reuse.allowSession(kind !== "omakase");
     if (kind === "prompt") startPromptWizard();
     else if (kind === "omakase") startOmakase();
     else startWizard(null);
@@ -510,9 +538,23 @@
   }
 
   function sheetsReady(book) {
+    if (SBS.Reuse && SBS.Reuse.attachSheets) SBS.Reuse.attachSheets(book);
     var chars = (book && book.bible && book.bible.characters) || [];
     if (!chars.length) return true;
+    if (SBS.Reuse && SBS.Reuse.pendingIndexes) {
+      return !SBS.Reuse.pendingIndexes(book).length;
+    }
     return ((book.characterSheets || []).filter(function (s) { return s && s.url; }).length) >= chars.length;
+  }
+
+  function proceedToCharReview(book) {
+    if (!book) return;
+    if (SBS.Reuse && SBS.Reuse.attachSheets) SBS.Reuse.attachSheets(book);
+    if (sheetsReady(book)) {
+      showCharReview(book);
+      return;
+    }
+    reviewCharactersAndOpen(book);
   }
 
   function reviewCharactersAndOpen(nextBook) {
@@ -577,6 +619,7 @@
 
   function openStepsFromBook(book) {
     if (!book) return;
+    if (SBS.Reuse && SBS.Reuse.allowSession) SBS.Reuse.allowSession(true);
     reviewBook = book;
     if (SBS.LibraryIO && SBS.LibraryIO.hydrateCharacterSheets) {
       SBS.LibraryIO.hydrateCharacterSheets(book);
@@ -647,6 +690,14 @@
       regen.setAttribute("data-char-regen", String(i));
       regen.textContent = "指示を入れて描き直す";
       actions.appendChild(regen);
+      if (SBS.Reuse && SBS.Reuse.canPickStep6 && SBS.Reuse.canPickStep6()) {
+        var reuseBtn = document.createElement("button");
+        reuseBtn.type = "button";
+        reuseBtn.className = "btn btn-ghost";
+        reuseBtn.setAttribute("data-char-reuse", String(i));
+        reuseBtn.textContent = "過去のデザインから選ぶ";
+        actions.appendChild(reuseBtn);
+      }
       card.appendChild(actions);
       host.appendChild(card);
     });
@@ -658,8 +709,24 @@
     charBusy = !!on;
     var paint = $("btn-char-review-paint");
     if (paint) paint.disabled = charBusy;
-    document.querySelectorAll("[data-char-regen]").forEach(function (el) {
+    document.querySelectorAll("[data-char-regen], [data-char-reuse]").forEach(function (el) {
       el.disabled = charBusy;
+    });
+  }
+
+  function pickReuseForBook(index) {
+    if (!reviewBook || charBusy || !SBS.Reuse || !SBS.Reuse.openPicker) return;
+    var intent = reviewBook.intent || {};
+    var chars = (intent.characters || []).slice();
+    SBS.Reuse.openPicker({
+      title: "過去のデザインから選ぶ",
+      currentMood: SBS.moodOf ? SBS.moodOf(intent) : intent.mood,
+      takenKeys: SBS.Reuse.takenKeys ? SBS.Reuse.takenKeys(chars, index) : {},
+      onPick: function (candidate, mode) {
+        SBS.Reuse.applyToBook(reviewBook, index, candidate, mode);
+        persistBook(reviewBook);
+        renderCharReview(reviewBook);
+      }
     });
   }
 
@@ -812,6 +879,29 @@
     if (!intent || !intent.title || intent.title === "くうのゆうき") {
       intent = fallbackOmakaseIntent();
     }
+    openBookGuarded(intent);
+  }
+
+  function openBookGuarded(intent) {
+    if (!intent) return;
+    if (SBS.Reuse && SBS.Reuse.mismatched) {
+      var mood = SBS.moodOf ? SBS.moodOf(intent) : (intent.mood || {});
+      var bad = SBS.Reuse.mismatched(intent.characters, mood);
+      if (bad.length) {
+        var src = bad[0] && bad[0].reuse && bad[0].reuse.sourceMood;
+        askConfirm(
+          "雰囲気",
+          SBS.Reuse.warnMessage ? SBS.Reuse.warnMessage(mood, src) :
+            "元の絵本と今の絵本で雰囲気が違います。再利用を続けますか？",
+          function (ok) {
+            if (!ok) return;
+            if (SBS.Reuse.ackMood) SBS.Reuse.ackMood(intent.characters);
+            openBook(intent);
+          }
+        );
+        return;
+      }
+    }
     openBook(intent);
   }
 
@@ -835,12 +925,16 @@
         var bible = SBS.Bible.fromIntent(intent);
         var nextBook = SBS.Story.build(intent, bible);
         if (SBS.Consent && SBS.Consent.stamp) SBS.Consent.stamp(nextBook);
+        if (SBS.Reuse && SBS.Reuse.attachSheets) SBS.Reuse.attachSheets(nextBook);
         if (!SBS.PromptTemplates || !SBS.PromptCompiler) {
           throw new Error("prompt compiler missing");
         }
         SBS.PromptCompiler.compile(intent, bible, nextBook);
         writeThenReview(nextBook);
       } catch (err) {
+        if (typeof console !== "undefined" && console.error) {
+          console.error("[SBS] openBook", err);
+        }
         showScreen("home");
         showSoon("絵本", "絵本を開けませんでした。ページを再読み込みして、もう一度試してください。");
       }
@@ -920,7 +1014,16 @@
 
   SBS.applyBookTitle = applyBookTitle;
 
-  function redrawCurrent() {
+  function redrawSpreadLabel(book, idx) {
+    var stay = idx + 1;
+    var total = ((book && book.spreads) || []).length || 12;
+    var spread = book && book.spreads && book.spreads[idx];
+    if (spread && spread.role === "cover") return "表紙の插絵";
+    if (spread && spread.role === "back") return "裏表紙の插絵";
+    return "見開き " + stay + " / " + total + " の左ページ";
+  }
+
+  function openRedrawForm() {
     var current = SBS.Viewer.current();
     var stay = SBS.Viewer.spreadNumber ? SBS.Viewer.spreadNumber() : 1;
     var idx = SBS.Viewer.spreadIndex ? SBS.Viewer.spreadIndex() : stay - 1;
@@ -928,23 +1031,52 @@
       showSoon("描き直し", "先に絵本を開いてから、描き直してください。");
       return;
     }
+    var lead = $("redraw-lead");
+    if (lead) {
+      lead.textContent = redrawSpreadLabel(current, idx) + "を、指示どおりに描き直します。";
+    }
+    var ta = $("redraw-note");
+    if (ta) ta.value = String((current.spreads[idx] && current.spreads[idx].redrawNote) || "");
+    openDialog("redraw-dialog");
+    if (ta && typeof ta.focus === "function") {
+      window.setTimeout(function () { ta.focus(); }, 40);
+    }
+  }
+
+  function redrawCurrent(note) {
+    var current = SBS.Viewer.current();
+    var stay = SBS.Viewer.spreadNumber ? SBS.Viewer.spreadNumber() : 1;
+    var idx = SBS.Viewer.spreadIndex ? SBS.Viewer.spreadIndex() : stay - 1;
+    if (!current || !current.spreads || !current.spreads[idx]) {
+      showSoon("描き直し", "先に絵本を開いてから、描き直してください。");
+      return;
+    }
+    var extra = String(note || "").trim();
+    current.spreads[idx].redrawNote = extra;
     redrawing = true;
     showGenerating({
-      title: "絵本をつくっています",
-      message: "このページの絵を描き直しています",
+      title: "この絵を描き直しています",
+      message: extra ? "指示に合わせて、このページの絵を描き直しています" : "このページの絵を描き直しています",
       done: 0,
       total: 1,
       unit: " ページ"
     });
+    startRedrawTick($("gen-message") ? $("gen-message").textContent : "このページの絵を描き直しています");
     var painter = (SBS.Gemini && SBS.Gemini.paintSpread)
       ? SBS.Gemini.paintSpread
-      : function (book, i, onProgress, onDone) {
-        SBS.DemoArt.paintOne(book, i);
-        if (onDone) onDone(book, "complete");
+      : function (book, i, onProgress, onDone, extraNote) {
+        if (onProgress) onProgress(0, 1, "このページの絵を描き直しています");
+        window.setTimeout(function () {
+          SBS.DemoArt.paintOne(book, i);
+          if (onProgress) onProgress(1, 1, "このページの絵を描き直しています");
+          if (onDone) onDone(book, "complete");
+        }, 900);
       };
     painter(current, idx, function (done, total, message) {
-      updateGenProgress(done, total || 1, message, " ページ");
+      noteAssembleProgress(done, total || 1, message);
     }, function (finished, status) {
+      stopAssembleTick();
+      updateGenProgress(1, 1, "このページの絵を描き直しています", " ページ");
       redrawing = false;
       persistBook(finished);
       refreshFolderButton();
@@ -954,7 +1086,7 @@
       if (finished.redrawResult === "kept") {
         showSoon("描き直し", "描き直せませんでした。前の絵のままです。");
       }
-    });
+    }, extra);
   }
 
   function refreshResume() {
@@ -1158,6 +1290,7 @@
     if (isKiosk()) document.body.classList.add("kiosk");
 
     if (SBS.Consent && SBS.Consent.bind) SBS.Consent.bind();
+    if (SBS.Reuse && SBS.Reuse.bind) SBS.Reuse.bind();
     $("btn-make").addEventListener("click", function () {
       beginCreate("wizard");
     });
@@ -1179,6 +1312,7 @@
       }).then(renderLibrary);
     });
     $("btn-resume").addEventListener("click", function () {
+      if (SBS.Reuse && SBS.Reuse.allowSession) SBS.Reuse.allowSession(true);
       SBS.LibraryIO.sessionLoad().then(function (session) {
         if (!session || !session.book) return;
         var book = session.book;
@@ -1188,7 +1322,7 @@
         var arts = (book.spreads || []).some(function (s) { return s.leftArt; });
         if (texts && arts) paintImagesAndOpen(book);
         else if (texts && sheetsReady(book)) showCharReview(book);
-        else if (texts) reviewCharactersAndOpen(book);
+        else if (texts) proceedToCharReview(book);
         else writeThenReview(book);
       });
     });
@@ -1217,8 +1351,7 @@
         persistBook(reviewBook);
         function afterRuby() {
           persistBook(reviewBook);
-          if (sheetsReady(reviewBook)) showCharReview(reviewBook);
-          else reviewCharactersAndOpen(reviewBook);
+          proceedToCharReview(reviewBook);
         }
         if (SBS.Story && SBS.Story.wantsRuby && SBS.Story.wantsRuby(reviewBook) &&
             SBS.Gemini && SBS.Gemini.fillMissingReadings) {
@@ -1261,9 +1394,13 @@
     }
     if ($("char-review-list")) {
       $("char-review-list").addEventListener("click", function (ev) {
-        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-char-regen]") : null;
-        if (!btn) return;
-        regenerateCharacter(Number(btn.getAttribute("data-char-regen")));
+        var target = ev.target && ev.target.closest ? ev.target.closest("[data-char-regen], [data-char-reuse]") : null;
+        if (!target) return;
+        if (target.getAttribute("data-char-reuse") != null) {
+          pickReuseForBook(Number(target.getAttribute("data-char-reuse")));
+          return;
+        }
+        regenerateCharacter(Number(target.getAttribute("data-char-regen")));
       });
     }
     $("btn-gen-cancel").addEventListener("click", function () {
@@ -1287,6 +1424,10 @@
       if (SBS.Consent && SBS.Consent.setOn) {
         var gateEl = $("consent-gate");
         SBS.Consent.setOn(gateEl ? gateEl.checked : true);
+      }
+      if (SBS.Reuse && SBS.Reuse.setOn) {
+        var reuseEl = $("reuse-chars-gate");
+        SBS.Reuse.setOn(reuseEl ? reuseEl.checked : true);
       }
       refreshGeminiStatus();
     }
@@ -1350,12 +1491,12 @@
         if (reviewBook) showTextReview(reviewBook);
         return;
       }
-      if (result) openBook(result);
+      if (result) openBookGuarded(result);
     });
     if ($("btn-wizard-remake")) {
       $("btn-wizard-remake").addEventListener("click", function () {
         var intent = SBS.Wizard.remake && SBS.Wizard.remake();
-        if (intent) openBook(intent);
+        if (intent) openBookGuarded(intent);
       });
     }
     $("btn-add-character").addEventListener("click", function () {
@@ -1390,7 +1531,19 @@
       });
     }
     if ($("btn-redraw")) {
-      $("btn-redraw").addEventListener("click", redrawCurrent);
+      $("btn-redraw").addEventListener("click", openRedrawForm);
+    }
+    if ($("btn-redraw-run")) {
+      $("btn-redraw-run").addEventListener("click", function () {
+        var ta = $("redraw-note");
+        closeDialog("redraw-dialog");
+        redrawCurrent(ta ? ta.value : "");
+      });
+    }
+    if ($("btn-redraw-cancel")) {
+      $("btn-redraw-cancel").addEventListener("click", function () {
+        closeDialog("redraw-dialog");
+      });
     }
     if ($("btn-save-title")) {
       $("btn-save-title").addEventListener("click", function () {
