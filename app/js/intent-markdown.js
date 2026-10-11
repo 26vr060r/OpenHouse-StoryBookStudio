@@ -286,7 +286,7 @@
           roleFree: c.roleFree || "",
           kind: c.kind || "",
           kindFree: c.kindFree || "",
-          personality: (c.personality || []).slice(),
+          personality: Array.isArray(c.personality) ? c.personality.slice() : [],
           personalityFree: c.personalityFree || "",
           traits: c.traits || ""
         };
@@ -300,7 +300,7 @@
           roleFree: "",
           kind: ch.kind || "",
           kindFree: ch.kindLabel || "",
-          personality: (ch.personality || []).slice(),
+          personality: Array.isArray(ch.personality) ? ch.personality.slice() : [],
           personalityFree: ch.personalityFree || "",
           traits: (ch.mustKeep || []).filter(function (item) {
             return item && item.indexOf("オリジナル") === -1 && item.indexOf("雰囲気") === -1;

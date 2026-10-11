@@ -530,7 +530,11 @@
       var parsed = parseDataUrl(ref && ref.url ? ref.url : ref);
       if (!parsed) return;
       var label;
-      if (ref && ref.role === "world") {
+      if (ref && ref.role === "redraw") {
+        label = "Attached image " + (i + 1) + " is the CURRENT illustration of THIS page." +
+          " Keep the same characters, world, camera, and composition unless the rewrite note says otherwise." +
+          " Apply the rewrite note as the only change. Do not start a new scene from scratch.";
+      } else if (ref && ref.role === "world") {
         label = "Attached image " + (i + 1) + " is this book's WORLD CONTINUITY lock." +
           " Copy the designs and colors of key items, landmark buildings, vehicles, sky, ground, weather, and unnamed extras." +
           " Do NOT copy that page's camera, pose, or composition." +
@@ -1487,6 +1491,7 @@
 
   function paintCharacterSheets(book, onProgress, onDone) {
     paintToken.cancel = false;
+    if (SBS.Reuse && SBS.Reuse.attachSheets) SBS.Reuse.attachSheets(book);
     var chars = ensureCharacterSheets(book);
     var settled = false;
 
@@ -2070,21 +2075,24 @@
     if (geminiArt || demoArt) setGenerator(book, geminiArt, demoArt);
   }
 
-  function paintSpread(book, spreadIndex, onProgress, onDone) {
+  function paintSpread(book, spreadIndex, onProgress, onDone, extraNote) {
     paintToken.cancel = false;
     var spreads = (book && book.spreads) || [];
     var spread = spreads[spreadIndex];
     var previous = spread ? spread.leftArt : "";
     var previousSource = spread ? spread.artSource : "";
+    var note = String(extraNote || (spread && spread.redrawNote) || "").trim();
+    if (spread) spread.redrawNote = note;
 
     function finish(status, result) {
       book.redrawResult = result || (status === "interrupted" ? "kept" : "updated");
       recountGenerator(book);
+      if (onProgress) onProgress(1, 1, "このページの絵を描き直しています");
       if (onDone) onDone(book, status);
     }
 
     function progress(message) {
-      if (onProgress) onProgress(doneCount(book), spreads.length, message);
+      if (onProgress) onProgress(0, 1, message);
     }
 
     if (!spread) {
@@ -2093,14 +2101,33 @@
     }
 
     if (!wantsGemini() || !ensurePrompts(book)) {
-      paintOneDemo(book, spreadIndex);
-      spread.artSource = "demo";
-      finish("complete", "demo");
-      return Promise.resolve();
+      progress(note ? "指示に合わせて、このページの絵を描き直しています" : "このページの絵を描き直しています");
+      refreshImagePrompt(book, spreadIndex);
+      return wait(900).then(function () {
+        if (paintToken.cancel) {
+          finish("interrupted", "kept");
+          return;
+        }
+        paintOneDemo(book, spreadIndex);
+        spread.artSource = "demo";
+        finish("complete", "demo");
+      });
     }
     book.imageTier = getImageTier();
     book.imageModel = imageModelName();
     book.textModel = textModelName();
+
+    function pageRefs() {
+      var refs = refsForPage(book, spreadIndex);
+      if (note && previous) {
+        refs = [{
+          url: previous,
+          role: "redraw",
+          name: "current illustration"
+        }].concat(refs);
+      }
+      return refs;
+    }
 
     function runImage() {
         if (paintToken.cancel) {
@@ -2109,10 +2136,10 @@
           finish("interrupted", "kept");
           return Promise.resolve();
         }
-      progress("このページの絵を描いています");
+      progress(note ? "指示に合わせて、このページの絵を描き直しています" : "このページの絵を描き直しています");
       refreshImagePrompt(book, spreadIndex);
       var page = book.prompts.pages && book.prompts.pages[spreadIndex];
-      var refs = refsForPage(book, spreadIndex);
+      var refs = pageRefs();
       return generateImage(page && page.image, refs.length ? book.characterSheet : "", {
         refs: refs.length ? refs : null,
         imageConfig: pageImageConfig(spread)

@@ -37,8 +37,32 @@
       kindFree: "",
       personality: [],
       personalityFree: "",
-      traits: ""
+      traits: "",
+      reuse: null
     };
+  }
+
+  function cloneReuseOf(ch) {
+    if (SBS.Reuse && SBS.Reuse.clone) return SBS.Reuse.clone(ch && ch.reuse);
+    return (ch && ch.reuse) || null;
+  }
+
+  function snapshotReuse() {
+    return (state.characters || []).map(function (ch) {
+      return cloneReuseOf(ch);
+    });
+  }
+
+  function restoreReuse(list, kept) {
+    (list || []).forEach(function (ch, i) {
+      if (!ch) return;
+      if (kept && kept[i]) ch.reuse = kept[i];
+    });
+  }
+
+  function asPersonalityIds(value) {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return [];
   }
 
   function personalityMax() {
@@ -46,7 +70,8 @@
   }
 
   function personalityCountOf(ch) {
-    return ((ch && ch.personality) || []).length + (ch && String(ch.personalityFree || "").trim() ? 1 : 0);
+    return asPersonalityIds(ch && ch.personality).length +
+      (ch && String(ch.personalityFree || "").trim() ? 1 : 0);
   }
 
   function roleLabelOf(ch) {
@@ -133,6 +158,7 @@
       });
       var role = roleBtn ? roleBtn.getAttribute("data-role") : "";
       var kind = kindBtn ? kindBtn.getAttribute("data-kind") : "";
+      var prev = state.characters[next.length] || {};
       next.push({
         name: clampText(nameEl ? nameEl.value : "", SBS.LIMITS.name),
         role: role,
@@ -141,7 +167,8 @@
         kindFree: kind ? "" : clampText(kindFreeEl ? kindFreeEl.value : "", SBS.LIMITS.freeText),
         personality: personality,
         personalityFree: clampText(personalityFreeEl ? personalityFreeEl.value : "", SBS.LIMITS.freeText),
-        traits: clampText(traitsEl ? traitsEl.value : "", SBS.LIMITS.freeText)
+        traits: clampText(traitsEl ? traitsEl.value : "", SBS.LIMITS.freeText),
+        reuse: cloneReuseOf(prev)
       });
     });
     if (next.length) state.characters = next;
@@ -202,9 +229,10 @@
           roleFree: c.roleFree || "",
           kind: c.kind || "",
           kindFree: c.kindFree || "",
-          personality: (c.personality || []).slice(),
+          personality: asPersonalityIds(c.personality).slice(),
           personalityFree: c.personalityFree || "",
-          traits: c.traits
+          traits: c.traits,
+          reuse: cloneReuseOf(c)
         };
       })
     };
@@ -339,6 +367,67 @@
     }
   }
 
+  function currentMoodPick() {
+    readFormIntoState();
+    if (SBS.moodOf) {
+      return SBS.moodOf({
+        mood: state.moodFree.trim()
+          ? { preset: "", freeText: state.moodFree }
+          : { preset: state.mood || "", freeText: "" }
+      });
+    }
+    return { preset: state.mood || "", freeText: state.moodFree || "" };
+  }
+
+  function bindReuseRow(card, ch, index) {
+    var row = card.querySelector("[data-reuse-row]");
+    if (!row) return;
+    row.innerHTML = "";
+    if (!SBS.Reuse || !SBS.Reuse.canPickStep3 || !SBS.Reuse.canPickStep3()) return;
+    var status = document.createElement("p");
+    status.className = "reuse-status";
+    if (ch.reuse) {
+      status.textContent = (SBS.Reuse.modeLabel && SBS.Reuse.modeLabel(ch.reuse.mode)) || "過去のデザインを再利用中";
+    } else {
+      status.hidden = true;
+    }
+    row.appendChild(status);
+    var pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "btn btn-ghost btn-small";
+    pick.textContent = "過去のデザインから選ぶ";
+    pick.addEventListener("click", function () {
+      collectCharactersFromDom();
+      var keepRole = state.characters[index] ? state.characters[index].role : "";
+      var keepRoleFree = state.characters[index] ? state.characters[index].roleFree : "";
+      SBS.Reuse.openPicker({
+        title: "過去のデザインから選ぶ",
+        currentMood: currentMoodPick(),
+        takenKeys: SBS.Reuse.takenKeys ? SBS.Reuse.takenKeys(state.characters, index) : {},
+        onPick: function (candidate, mode) {
+          if (!state.characters[index]) return;
+          SBS.Reuse.applyToCharacter(state.characters[index], candidate, mode);
+          state.characters[index].role = keepRole;
+          state.characters[index].roleFree = keepRoleFree;
+          renderCharacters();
+        }
+      });
+    });
+    row.appendChild(pick);
+    if (ch.reuse) {
+      var clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "btn btn-ghost btn-small";
+      clear.textContent = "再利用をやめる";
+      clear.addEventListener("click", function () {
+        collectCharactersFromDom();
+        if (state.characters[index] && SBS.Reuse.clear) SBS.Reuse.clear(state.characters[index]);
+        renderCharacters();
+      });
+      row.appendChild(clear);
+    }
+  }
+
   function renderCharacters() {
     var host = $("character-list");
     if (!host) return;
@@ -369,8 +458,10 @@
         "<label>とくちょう" +
         "<textarea data-field=\"traits\" maxlength=\"" + SBS.LIMITS.freeText + "\" rows=\"2\"></textarea>" +
         "</label>" +
+        "<div class=\"reuse-row\" data-reuse-row></div>" +
         "<p class=\"privacy-note\" data-originality-hint hidden></p>";
       host.appendChild(card);
+      bindReuseRow(card, ch, index);
 
       var nameEl = card.querySelector("[data-field=name]");
       var traitsEl = card.querySelector("[data-field=traits]");
@@ -664,9 +755,10 @@
             roleFree: c.roleFree || "",
             kind: c.kind || "",
             kindFree: c.kindFree || "",
-            personality: (c.personality || []).slice(),
+            personality: asPersonalityIds(c.personality).slice(),
             personalityFree: c.personalityFree || "",
-            traits: c.traits || ""
+            traits: c.traits || "",
+            reuse: cloneReuseOf(c)
           };
         })
       : [emptyCharacter("hero")];
@@ -683,9 +775,17 @@
   }
 
   function finishIntent() {
+    collectCharactersFromDom();
+    var kept = snapshotReuse();
     var parsed = applyParsedBrief(false);
     if (parsed.error) return null;
     var intent = parsed.intent;
+    restoreReuse(intent.characters, kept);
+    restoreReuse(state.characters, kept);
+    if (SBS.Reuse && SBS.Reuse.recover) {
+      SBS.Reuse.recover(intent.characters);
+      SBS.Reuse.recover(state.characters);
+    }
     if (!intent.title) intent.title = suggestTitle();
     intent.briefMarkdown = SBS.IntentMarkdown
       ? SBS.IntentMarkdown.stripFence(briefEl() ? briefEl().value : "")
@@ -754,6 +854,7 @@
 
   SBS.Wizard = {
     start: function start(seed) {
+      if (SBS.Reuse && SBS.Reuse.resetPicks) SBS.Reuse.resetPicks();
       state.promptOnly = false;
       state.linkedBook = false;
       applyIntent(seed || {

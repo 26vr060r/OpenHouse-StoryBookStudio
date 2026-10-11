@@ -947,7 +947,8 @@
         STORY_TEXT: body || plan.summary || copy.direction,
         WHO: whoLineOf(cast) || "No named characters. Do not add people from the book cast.",
         COMPOSITION: compositionOf(spread),
-        CANVAS_SPEC: canvasSpecOf(spread)
+        CANVAS_SPEC: canvasSpecOf(spread),
+        REDRAW_NOTE: redrawNoteBlock(spread)
       });
     }
     var characterSheet = fill(T.characterSheet, shared);
@@ -1042,6 +1043,16 @@
     return book.prompts;
   }
 
+  function redrawNoteBlock(spread) {
+    var note = sanitize(spread && spread.redrawNote, 240);
+    if (!note) return "";
+    if (SBS.Originality && SBS.Originality.rewrite) {
+      note = SBS.Originality.rewrite(note) || note;
+    }
+    if (!note) return "";
+    return "REWRITE NOTE (apply this change to the current illustration; keep the same story moment, cast, world, and style unless the note says otherwise): " + note;
+  }
+
   function refreshPageImage(book, index) {
     if (!book || !book.prompts || !book.prompts.pages || !book.spreads) return "";
     var spread = book.spreads[index];
@@ -1089,7 +1100,8 @@
       STORY_TEXT: body || plan.summary || copy.direction,
       WHO: whoLineOf(cast) || "No named characters. Do not add people from the book cast.",
       COMPOSITION: compositionOf(spread),
-      CANVAS_SPEC: canvasSpecOf(spread)
+      CANVAS_SPEC: canvasSpecOf(spread),
+      REDRAW_NOTE: redrawNoteBlock(spread)
     });
     if (book.prompts.files && book.prompts.files.length) {
       var needle = "_" + page.page + ".image.prompt.txt";

@@ -327,6 +327,8 @@
             }
           }
         }
+        var reuse = (SBS.Reuse && SBS.Reuse.clone) ? SBS.Reuse.clone(ch.reuse) : (ch.reuse || null);
+        var keepSheet = reuse && reuse.mode === "keep" && reuse.sheetUrl ? reuse.sheetUrl : "";
         return {
           id: characterId(index),
           displayName: ch.name,
@@ -336,8 +338,10 @@
           roleLabel: roleLabel,
           kind: ch.kind || "",
           kindLabel: kindLabel,
-          personality: (ch.personality || []).slice(),
+          personality: Array.isArray(ch.personality) ? ch.personality.slice() : [],
           personalityFree: ch.personalityFree || "",
+          reuse: reuse,
+          sheet: keepSheet,
           palette: palette,
           accessories: { scarf: parsed.scarf, glasses: parsed.glasses },
           body: {

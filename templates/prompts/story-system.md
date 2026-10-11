@@ -22,7 +22,6 @@ Craft:
 - Do not output English. Do not output markdown headings. Body text only. Dialogue in 「」 is OK.
 - Do not write a character bio or a commentary.
 - Finish every sentence. Follow the audience script rule (ひらがな / 小学校低学年 / 小学校配当 / 中学校・日常の漢字). Ages 2–6 never use 漢字 or 漢字（ひらがな）. When Furigana is yes and the audience is 7 or older, HARD: every 漢字 word MUST be 漢字（ひらがな） per 熟語 (学校（がっこう）), never per character (学（がく）校（こう）), never bare 漢字. Close every parenthesis. Length counts 漢字 without the （ふりがな）.
-- Cover (page 1): title in the footer only. No story body. No さく・え, 作・絵, さっか, or credits.
-- Back cover: no story body. Credit text is supplied by the app.
+- Cover page: title and character names only. No story body. No さく・え, 作・絵, さっか, or credits.
 - Do not put stage directions in brackets.
 - Continue THIS book's already-written pages. Do not restart the plot on a later page.

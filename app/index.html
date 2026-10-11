@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>世界に一つだけの絵本 | StoryBook Studio</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <link rel="stylesheet" href="css/studio.css?v=20261011-consent">
+  <link rel="stylesheet" href="css/studio.css?v=20261011-redrawnote">
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/print.css?v=20261011-legalai">
 </head>
@@ -406,6 +406,54 @@
     </div>
   </dialog>
 
+  <dialog class="dialog" id="reuse-dialog" aria-labelledby="reuse-title">
+    <div class="dialog-body reuse-dialog-body">
+      <h2 id="reuse-title">過去のデザインから選ぶ</h2>
+      <p id="reuse-empty" class="note" hidden></p>
+      <div id="reuse-list" class="reuse-list"></div>
+      <div id="reuse-mood" hidden>
+        <p id="reuse-mood-message"></p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="btn-reuse-mood-yes">続ける</button>
+          <button type="button" class="btn btn-ghost" id="btn-reuse-mood-no">やめる</button>
+        </div>
+      </div>
+      <div id="reuse-mode" hidden>
+        <p>6面図の扱いを選んでください。やくわりは、今の絵本のままです。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="btn-reuse-mode-keep">6面図をそのまま使う</button>
+          <button type="button" class="btn btn-ghost" id="btn-reuse-mode-regen">情報だけ引き継ぎ、デザインを再生成</button>
+        </div>
+      </div>
+      <div id="reuse-preview" hidden>
+        <p id="reuse-preview-name" class="reuse-preview-name"></p>
+        <p id="reuse-preview-meta" class="note"></p>
+        <img id="reuse-preview-img" class="reuse-preview-img" alt="">
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="btn-reuse-preview-pick">この人を選ぶ</button>
+          <button type="button" class="btn btn-ghost" id="btn-reuse-preview-back">一覧へ</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" id="btn-reuse-cancel">とじる</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog" id="redraw-dialog" aria-labelledby="redraw-title">
+    <div class="dialog-body">
+      <h2 id="redraw-title">この絵を描き直す</h2>
+      <p id="redraw-lead">いま見ている左ページの插絵を、指示どおりに描き直します。</p>
+      <label class="block-label">どのように直しますか
+        <textarea id="redraw-note" rows="4" maxlength="240" placeholder="例：空をもっと青く。ぼうしを赤に。"></textarea>
+      </label>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btn-redraw-run">描き直す</button>
+        <button type="button" class="btn btn-ghost" id="btn-redraw-cancel">やめる</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog class="dialog" id="soon-dialog" aria-labelledby="soon-title">
     <div class="dialog-body">
       <h2 id="soon-title">もうすぐつながります</h2>
@@ -487,6 +535,17 @@
         <p class="note">オンのときだけ、ホームから絵本をつくる前に同意画面を出します。オフのときはスキップします。書庫とつづきからは出しません。</p>
       </fieldset>
       <fieldset class="settings-modes">
+        <legend>過去のキャラクター再利用</legend>
+        <label class="switch-label">
+          <span class="switch">
+            <input type="checkbox" id="reuse-chars-gate" checked>
+            <span class="switch-slider" aria-hidden="true"></span>
+          </span>
+          <span>ステップ3で「過去のデザインから選ぶ」を出す</span>
+        </label>
+        <p class="note">オンのとき、書庫や途中の本にある6面図を、新しい絵本の登場人物に使えます。おまかせでは使いません。やくわりは今の本用です。</p>
+      </fieldset>
+      <fieldset class="settings-modes">
         <legend>絵本のページ数</legend>
         <label class="check-label">
           <input type="radio" name="page-count" value="12" checked>
@@ -512,24 +571,25 @@
     </div>
   </dialog>
 
-  <script src="js/presets.js?v=20261008-backhalf"></script>
-  <script src="js/intent-markdown.js?v=20260928-script"></script>
+  <script src="js/presets.js?v=20261011-reuse"></script>
+  <script src="js/intent-markdown.js?v=20261011-reuse"></script>
   <script src="js/originality.js?v=20261008-backhalf"></script>
-  <script src="js/wizard.js?v=20260928-script"></script>
-  <script src="js/bible.js?v=20260928-world"></script>
+  <script src="js/wizard.js?v=20261011-reusekeep"></script>
+  <script src="js/bible.js?v=20261011-reusekeep"></script>
   <script src="js/story.js?v=20261008-backhalf"></script>
-  <script src="js/demo-art.js?v=20261008-backhalf"></script>
-  <script src="js/prompt-templates.js?v=20261008-backhalf"></script>
+  <script src="js/demo-art.js?v=20261011-reusekeep"></script>
+  <script src="js/prompt-templates.js?v=20261011-redrawnote"></script>
   <script src="js/zip-store.js?v=20260925-omakase2"></script>
-  <script src="js/prompt-compiler.js?v=20261008-backhalf"></script>
+  <script src="js/prompt-compiler.js?v=20261011-redrawnote"></script>
   <script src="js/library-io.js?v=20261011-delete"></script>
+  <script src="js/reuse.js?v=20261011-reusekeep"></script>
   <script src="js/pdf-write.js?v=20260925-omakase2"></script>
   <script src="js/export.js?v=20261011-legalai"></script>
-  <script src="js/gemini.js?v=20261008-backhalf"></script>
+  <script src="js/gemini.js?v=20261011-redrawnote"></script>
   <script src="js/page-fit.js?v=20261008-backhalf"></script>
   <script src="js/viewer.js?v=20261011-delete"></script>
   <script src="js/consent.js?v=20261011-consent"></script>
-  <script src="js/app.js?v=20261011-delete"></script>
+  <script src="js/app.js?v=20261011-redrawnote"></script>
   <script>
     SBS.init();
   </script>
