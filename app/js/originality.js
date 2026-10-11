@@ -70,7 +70,8 @@
     "- Open each page from a concrete object, sound, or spoken line in the memo. Do not open with a daily routine unless the memo names it.",
     "- Personality must change how they speak and what they try.",
     "- Continue pages already written for THIS book. Do not restart the plot.",
-    "- Market-typical kindness is OK. Copying another picture book's plot or catchphrase is not."
+    "- Market-typical kindness is OK. Copying another picture book's plot or catchphrase is not.",
+    "HARD PAGE RULE: Cover and back cover are illustration-only and cannot carry story text. Even pages are illustrations only. Write the whole scenario only on odd pages excluding the cover."
   ].join("\n");
 
   function escapeRegExp(text) {

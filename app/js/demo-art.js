@@ -25,7 +25,7 @@
     if (/fail|think/.test(scene)) return "sit";
     if (scene === "crisis") return "crouch";
     if (scene === "win") return "cheer";
-    if (/home|coda|cover/.test(scene)) return "wave";
+    if (/home|coda|cover|back/.test(scene)) return "wave";
     if (/night|dream|look|evening/.test(scene)) return "look";
     if (scene === "spark") return "reach";
     return "stand";
@@ -45,18 +45,22 @@
   function fillSky(ctx, setting, mood) {
     var pair = SETTING_SKY[setting] || SETTING_SKY.custom;
     if (mood === "night" || setting === "space") pair = SETTING_SKY.space;
-    var g = ctx.createLinearGradient(0, 0, 0, H);
+    var w = ctx.canvas.width || W;
+    var h = ctx.canvas.height || H;
+    var g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, pair[0]);
     g.addColorStop(1, pair[1]);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, w, h);
   }
 
   function drawGround(ctx, groundY, setting) {
+    var w = ctx.canvas.width || W;
+    var h = ctx.canvas.height || H;
     ctx.fillStyle = setting === "sea" ? "#5aa0c4" : setting === "space" ? "#2a2048" : "#7a9a4a";
     if (setting === "town" || setting === "school" || setting === "home") ctx.fillStyle = "#c4b49a";
     ctx.beginPath();
-    ctx.rect(0, groundY, W, H - groundY);
+    ctx.rect(0, groundY, w, h - groundY);
     ctx.fill();
   }
 
@@ -302,13 +306,16 @@
 
   function renderSpread(book, spread) {
     var canvas = document.createElement("canvas");
-    canvas.width = W;
-    canvas.height = H;
+    var back = spread && (spread.role === "back" || spread.scene === "back");
+    var w = W;
+    var h = back ? Math.round(W * 2 / 3) : H;
+    canvas.width = w;
+    canvas.height = h;
     var ctx = canvas.getContext("2d");
     var bible = book.bible || {};
     var setting = (bible.world && bible.world.settingPalette) || "custom";
     var mood = SBS.moodOf ? SBS.moodOf(book.intent).preset : (book.intent && book.intent.mood);
-    var groundY = Math.round(((bible.world && bible.world.groundLine) || 0.82) * H);
+    var groundY = Math.round(((bible.world && bible.world.groundLine) || (back ? 0.88 : 0.82)) * h);
     var ppu = (bible.world && bible.world.pixelsPerUnit) || 220;
     var pose = poseFor(spread.scene);
     var chars = bible.characters || [];
@@ -318,7 +325,7 @@
     drawSettingProps(ctx, setting, groundY, mood);
     drawGround(ctx, groundY, setting);
     chars.forEach(function (ch, i) {
-      drawCharacter(ctx, ch, Math.round(xs[i] * W), groundY, pose, ppu);
+      drawCharacter(ctx, ch, Math.round(xs[i] * w), groundY, pose, back ? ppu * 0.72 : ppu);
     });
     return canvas.toDataURL("image/png");
   }

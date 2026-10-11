@@ -207,6 +207,12 @@
       furigana: !!book.furigana,
       generator: book.generator || "demo",
       pageCount: book.pageCount || ((book.spreads || []).length * 2) || 12,
+      creator: book.creator && book.creator.name ? {
+        name: String(book.creator.name || ""),
+        agreed: !!book.creator.agreed,
+        agreedAt: String(book.creator.agreedAt || ""),
+        agreedAtLabel: String(book.creator.agreedAtLabel || "")
+      } : null,
       print: { v1: "a4-landscape-spread", masterArt: "hires" },
       paths: {
         bible: "../../bible/" + id + ".bible.json",
@@ -307,6 +313,7 @@
       furigana: !!record.furigana,
       generator: record.generator || "demo",
       pageCount: record.pageCount || ((spreads || []).length * 2) || 12,
+      creator: record.creator || null,
       intent: entry.intent,
       bible: entry.bible,
       prompts: entry.prompts || null,
@@ -431,11 +438,50 @@
 
     listLocal: function listLocal() {
       return storeGetAll("catalog").then(function (rows) {
-        return rows.sort(function (a, b) {
-          var as = (a.catalog && a.catalog.stamp) || "";
-          var bs = (b.catalog && b.catalog.stamp) || "";
-          return as < bs ? 1 : as > bs ? -1 : 0;
+        return storeGet("kv", "session").then(function (session) {
+          var list = (rows || []).slice();
+          var sessionBook = session && session.book;
+          var sessionId = (session && session.bookId) || (sessionBook && sessionBook.bookId) || "";
+          var found = false;
+          list.forEach(function (row) {
+            var id = row && row.catalog && row.catalog.bookId;
+            if (id && sessionId && id === sessionId) {
+              found = true;
+              if (session.status !== "complete") row.inProgress = true;
+            }
+          });
+          if (!found && sessionBook && sessionBook.bookId) {
+            try {
+              var extra = localEntry(sessionBook);
+              extra.inProgress = session.status !== "complete";
+              list.push(extra);
+            } catch (err) {
+              /* ignore */
+            }
+          }
+          return list.sort(function (a, b) {
+            var as = (a.catalog && a.catalog.stamp) || "";
+            var bs = (b.catalog && b.catalog.stamp) || "";
+            return as < bs ? 1 : as > bs ? -1 : 0;
+          });
         });
+      });
+    },
+
+    removeLocal: function removeLocal(bookId) {
+      var id = String(bookId || "");
+      if (!id) return Promise.resolve({ ok: false, clearedSession: false });
+      return storeDelete("catalog", id).then(function () {
+        return storeGet("kv", "session");
+      }).then(function (session) {
+        var sessionId = (session && session.bookId) ||
+          (session && session.book && session.book.bookId) || "";
+        if (sessionId && sessionId === id) {
+          return storeDelete("kv", "session").then(function () {
+            return { ok: true, clearedSession: true };
+          });
+        }
+        return { ok: true, clearedSession: false };
       });
     },
 
