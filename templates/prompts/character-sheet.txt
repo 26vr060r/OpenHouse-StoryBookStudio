@@ -12,5 +12,7 @@ Plain studio or paper background is OK here only.
 - no labels, no arrows, no text, no speech bubbles, no 擬音 letters in the image
 - accessories from the lock must be clearly visible
 - original designs only: market-similar is OK, identical famous characters are not
+- each identity is a different person: different face, hair, clothes, silhouette
+- all characters share one illustration touch from STYLE_LOCK; do not mix media
 
 {{NEGATIVE}}

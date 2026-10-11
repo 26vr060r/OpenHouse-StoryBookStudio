@@ -13,7 +13,7 @@
     mood: "",
     moodFree: "",
     textDirection: "yoko",
-    furigana: true,
+    furigana: false,
     furiganaTouched: false,
     title: "",
     titleTouched: false,
@@ -59,7 +59,7 @@
     for (i = 0; i < list.length; i += 1) {
       if (list[i].id === audienceId) return list[i].furiganaDefault;
     }
-    return true;
+    return false;
   }
 
   function suggestTitle() {
@@ -651,7 +651,7 @@
     }
     if (state.mood && state.moodFree) state.moodFree = "";
     state.textDirection = intent.textDirection || "yoko";
-    state.furigana = intent.furigana !== false;
+    state.furigana = intent.furigana === true;
     state.furiganaTouched = typeof intent.furigana === "boolean";
     state.title = intent.title || "";
     state.titleTouched = !!intent.title;
@@ -758,7 +758,7 @@
       state.linkedBook = false;
       applyIntent(seed || {
         textDirection: "yoko",
-        furigana: true,
+        furigana: false,
         characters: [emptyCharacter("hero")]
       });
       fillInputs();
@@ -782,7 +782,7 @@
     startPrompt: function startPrompt() {
       applyIntent({
         textDirection: "yoko",
-        furigana: true,
+        furigana: false,
         characters: [emptyCharacter("hero")]
       });
       state.title = "";

@@ -630,11 +630,48 @@ textarea::placeholder {
   line-height: 1.8;
 }
 
+.gen-progress {
+  margin: 20px 0 8px;
+}
+
+.gen-progress-track {
+  height: 16px;
+  border-radius: 999px;
+  background: #f3eadc;
+  border: 1px solid var(--gold);
+  overflow: hidden;
+}
+
+.gen-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--cloth);
+  transition: width 0.55s ease-out;
+}
+
+.gen-progress-meta {
+  margin: 10px 0 0;
+  color: var(--cloth);
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+}
+
 .right-page {
-  line-height: 2.05;
-  font-size: 1.05rem;
-  overflow: auto;
-  padding: 28px 28px 20px 36px;
+  --page-size: 18px;
+  --page-lead: 1.95;
+  --page-gap: 0.5em;
+  --page-pad: 0.55em;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  line-height: var(--page-lead);
+  font-size: var(--page-size);
+  overflow: hidden;
+  padding: 22px 22px 16px 28px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-break: strict;
 }
 
 .text-review-list {
@@ -708,11 +745,28 @@ textarea::placeholder {
   text-orientation: mixed;
   height: 100%;
   width: 100%;
+  display: block;
 }
 
 .right-page p {
-  margin: 0 0 1em;
-  padding-top: 0.75em;
+  margin: 0 0 var(--page-gap);
+  padding-top: var(--page-pad);
+  text-align: justify;
+  text-justify: inter-character;
+}
+
+.right-page p:last-child {
+  margin-bottom: 0;
+}
+
+.right-page[data-role="cover"] p {
+  text-align: center;
+}
+
+.right-page.tate p {
+  text-align: start;
+  padding-top: 0;
+  padding-inline-start: var(--page-pad);
 }
 
 .right-page ruby {
@@ -728,6 +782,12 @@ textarea::placeholder {
 
 .right-page.tate ruby {
   ruby-position: over;
+}
+
+.right-page .colophon-line {
+  margin-top: 0.55em;
+  font-size: 0.82em;
+  color: var(--ink-soft);
 }
 
 @media (max-width: 700px), (orientation: portrait) and (max-width: 900px) {

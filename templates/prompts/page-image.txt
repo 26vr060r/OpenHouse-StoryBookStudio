@@ -14,13 +14,17 @@ Show this right-page story as a WORDLESS picture (Japanese is meaning only — n
 Direction: {{SCENE_DIRECTION}}
 People in the scene: {{WHO}}
 Composition: {{COMPOSITION}}
+Cast rule: {{CAST_ONCE_RULE}}
+Pose rule: {{POSE_RULE}}
 
 Technical:
 - portrait 3:4, high resolution, one scene, edge to edge
 - HARD: wordless image. No speech bubbles, no thought bubbles, no situation text, no 擬音 letters, no captions. Story words stay off-canvas
 - attached images are identity locks by ID; do not invent a new design
 - place only the IDs listed in People in the scene
-- HARD: one body per ID. Never draw the same character twice. Do not paste the turnaround grid into the scene
+- Follow CAST_ONCE_RULE. Do not paste the turnaround grid into the scene
+- Follow POSE_RULE for human and child bodies
 - keep original character designs; do not snap to a famous look
+- Follow WORLD_LOCK: same key items, landmarks, backdrop, and extras as earlier pages
 
 {{NEGATIVE}}

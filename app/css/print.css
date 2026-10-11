@@ -53,11 +53,44 @@
   background: #efe3d0;
 }
 
-.print-page.right {
-  padding: 28px 28px 20px 36px;
-  line-height: 2.05;
-  font-size: 0.95rem;
+.print-page.right,
+.print-leaf.text {
+  --page-size: 16px;
+  --page-lead: 1.9;
+  --page-gap: 0.45em;
+  --page-pad: 0.5em;
+  padding: 22px 20px 16px 26px;
+  line-height: var(--page-lead);
+  font-size: var(--page-size);
   overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-break: strict;
+}
+
+.print-page.right p,
+.print-leaf.text p {
+  margin: 0 0 var(--page-gap);
+  padding-top: var(--page-pad);
+  text-align: justify;
+  text-justify: inter-character;
+}
+
+.print-page.right p:last-child,
+.print-leaf.text p:last-child {
+  margin-bottom: 0;
+}
+
+.print-page.right[data-role="cover"] p,
+.print-leaf.text[data-role="cover"] p {
+  text-align: center;
+}
+
+.print-page.right.tate p,
+.print-leaf.tate p {
+  text-align: start;
+  padding-top: 0;
+  padding-inline-start: var(--page-pad);
 }
 
 .print-page.right ruby {
@@ -112,8 +145,8 @@
 }
 
 .colophon-line {
-  margin: 8px 0 0;
-  font-size: 0.85rem;
+  margin-top: 0.55em;
+  font-size: 0.82em;
   color: var(--ink-soft);
 }
 
@@ -206,8 +239,9 @@ body.print-kind-spread .print-leaf {
   }
 
   body.print-kind-spread .print-page.right {
-    padding: 4mm 2mm 4mm 10mm;
-    height: auto;
+    padding: 6mm 4mm 5mm 8mm;
+    height: 100%;
+    overflow: hidden;
   }
 
   body.print-kind-spread .print-art {
@@ -228,5 +262,9 @@ body.print-kind-spread .print-leaf {
     aspect-ratio: auto;
     break-after: page;
     page-break-after: always;
+  }
+
+  body.print-kind-booklet .print-leaf.text {
+    overflow: hidden;
   }
 }

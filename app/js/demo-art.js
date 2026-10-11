@@ -454,6 +454,9 @@
         if (!book.characterSheets[i] || !book.characterSheets[i].url) {
           SBS.DemoArt.paintCharacterSheet(book, i, (book.characterSheets[i] && book.characterSheets[i].note) || "");
         }
+        if (onProgress) {
+          onProgress(i + 1, chars.length, (chars[i].displayName || "登場人物") + " の見た目を描いています");
+        }
       }
       if (onDone) onDone(book, "complete");
     },

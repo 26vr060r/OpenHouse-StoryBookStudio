@@ -878,9 +878,137 @@
   };
 
   function trimForAudience(paragraphs, audience) {
-    if (audience === "age-2-3") return paragraphs.slice(0, 3);
-    if (audience === "age-4-6") return paragraphs.slice(0, 5);
+    if (audience === "age-2-3") return paragraphs.slice(0, 5);
+    if (audience === "age-4-6") return paragraphs.slice(0, 8);
     return paragraphs;
+  }
+
+  function stripParenReadings(text) {
+    return String(text || "").replace(/[（(][ぁ-ゖァ-ヶー]+[）)]/g, "");
+  }
+
+  function expandPlainRubyTokens(tokens) {
+    var out = [];
+    (tokens || []).forEach(function (tok) {
+      var text;
+      var re;
+      var last;
+      var match;
+      var mid;
+      var tail;
+      if (!tok) return;
+      if (tok.n) {
+        out.push(tok);
+        return;
+      }
+      if (tok.k) {
+        text = stripParenReadings(tok.k);
+        if (text) out.push(tok.r ? { k: text, r: tok.r } : { t: text });
+        return;
+      }
+      text = String(tok.t || "");
+      re = /([一-龯々〆ヵヶ]+)[ \u3000]*[（(]([ぁ-ゖァ-ヶー]+)[）)]/g;
+      last = 0;
+      while ((match = re.exec(text))) {
+        if (match.index > last) {
+          mid = stripParenReadings(text.slice(last, match.index));
+          if (mid) out.push({ t: mid });
+        }
+        out.push({ k: match[1], r: match[2] });
+        last = match.index + match[0].length;
+      }
+      tail = stripParenReadings(text.slice(last));
+      if (tail) out.push({ t: tail });
+    });
+    return out;
+  }
+
+  function readingMap(paragraphs) {
+    var map = {};
+    (paragraphs || []).forEach(function (tokens) {
+      expandPlainRubyTokens(tokens).forEach(function (tok) {
+        if (tok && tok.k && tok.r) map[tok.k] = tok.r;
+      });
+    });
+    return map;
+  }
+
+  function bookReadingMap(book) {
+    var map = {};
+    ((book && book.spreads) || []).forEach(function (spread) {
+      var part = readingMap(spread && spread.paragraphs);
+      Object.keys(part).forEach(function (key) {
+        map[key] = part[key];
+      });
+    });
+    return map;
+  }
+
+  function escapeRegExp(text) {
+    return String(text || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function injectReadings(text, map) {
+    var keys = Object.keys(map || {}).filter(Boolean).sort(function (a, b) {
+      return b.length - a.length;
+    });
+    var marked = [];
+    var protectedText = String(text || "").replace(
+      /([一-龯々〆ヵヶ]+)[ \u3000]*[（(][ぁ-ゖァ-ヶー]+[）)]/g,
+      function (chunk) {
+        marked.push(chunk);
+        return "\u0000" + (marked.length - 1) + "\u0000";
+      }
+    );
+    keys.forEach(function (key) {
+      protectedText = protectedText.replace(new RegExp(escapeRegExp(key), "g"), key + "（" + map[key] + "）");
+    });
+    return protectedText.replace(/\u0000(\d+)\u0000/g, function (_, n) {
+      return marked[Number(n)];
+    });
+  }
+
+  function applyReadings(paragraphs, map) {
+    return (paragraphs || []).map(function (tokens) {
+      var out = [];
+      expandPlainRubyTokens(tokens).forEach(function (tok) {
+        if (!tok) return;
+        if (tok.n) {
+          out.push(tok);
+          return;
+        }
+        if (tok.k) {
+          out.push(tok.r || !(map && map[tok.k]) ? tok : { k: tok.k, r: map[tok.k] });
+          return;
+        }
+        expandPlainRubyTokens([{ t: injectReadings(String(tok.t || ""), map) }]).forEach(function (piece) {
+          if (piece) out.push(piece);
+        });
+      });
+      return out;
+    });
+  }
+
+  function unmarkedKanji(paragraphs) {
+    var missing = [];
+    (paragraphs || []).forEach(function (tokens) {
+      expandPlainRubyTokens(tokens).forEach(function (tok) {
+        var found;
+        if (!tok) return;
+        if (tok.k && !String(tok.r || "").trim()) missing.push(tok.k);
+        if (tok.t) {
+          found = String(tok.t).match(/[一-龯々〆ヵヶ]+/g);
+          if (found) found.forEach(function (word) { missing.push(word); });
+        }
+      });
+    });
+    return missing;
+  }
+
+  function wantsRuby(book) {
+    if (!book || !book.furigana) return false;
+    var audience = book.intent && book.intent.audience;
+    return audience !== "age-2-3" && audience !== "age-4-6";
   }
 
   function parsePlainLine(line) {
@@ -944,21 +1072,22 @@
     ketsu: [140, 200]
   };
   var BENCH_SCALE = {
-    "age-2-3": 0.45,
-    "age-4-6": 0.7,
-    "age-7-9": 1,
-    "age-10-12": 1.1,
-    "age-13-15": 1.15,
-    "with-adults": 1.2
+    "age-2-3": 0.675,
+    "age-4-6": 1.05,
+    "age-7-9": 1.5,
+    "age-10-12": 1.65,
+    "age-13-15": 1.725,
+    "with-adults": 1.8
   };
 
   function benchLengths(age) {
-    var scale = BENCH_SCALE[age] || 1;
+    var scale = BENCH_SCALE[age] || 1.5;
+    var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 600;
     var out = {};
     Object.keys(BENCH_24_AGE79).forEach(function (key) {
       var pair = BENCH_24_AGE79[key];
       var lo = Math.max(8, Math.round(pair[0] * scale));
-      var hi = Math.min(400, Math.round(pair[1] * scale));
+      var hi = Math.min(cap, Math.round(pair[1] * scale));
       out[key] = lo + "-" + hi;
     });
     return out;
@@ -966,29 +1095,8 @@
 
   function defaultPlans(intent, count) {
     var cast = castOf(intent);
-    var hero = (cast.hero && cast.hero.name) || "主人公";
-    var partner = cast.partner && cast.partner.name;
-    var pair = partner ? hero + "と" + partner : hero;
-    var enemy = (cast.enemy && cast.enemy.name) || "困りごと";
-    var formA = (cast.forms[0] && cast.forms[0].name) || hero;
-    var formB = (cast.forms[1] && cast.forms[1].name) || partner || formA;
-    var theme = (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) ||
-      (intent.theme && intent.theme.freeText) || "たいせつなこと";
-    var setting = (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.settings, intent.setting, intent.audience)) ||
-      (intent.setting && intent.setting.freeText) || "まち";
     var hasTransform = cast.forms.length > 0;
-    var hasEnemy = !!cast.enemy;
-    var title = intent.title || pair + "の" + theme;
-    var age = ageKey(intent.audience);
-    var tone = {
-      "age-2-3": "見開き24の起承転結を、短い文とくりかえしで。擬音は1つまで。気持ちがすぐわかるやさしい感動。本文はほぼひらがな。漢字は使わない。",
-      "age-4-6": "見開き24の起承転結を、かんたんなことばで。擬音と短いセリフ。おかしさのあとにあたたかい感動。本文はほぼひらがな。漢字は使わない。",
-      "age-7-9": "見開き24の起承転結。場面・擬音・セリフ・失敗・立て直しを具体的に。ユーモアのあとにほろり。漢字は小学校低学年（1・2年）まで。",
-      "age-10-12": "見開き24の起承転結。場面・擬音・セリフ・失敗・立て直しを具体的に。おかしさのあとに、自分で気づく感動。漢字は小学校で習う範囲まで。",
-      "age-13-15": "見開き24の起承転結。読み応えのあることばで。かっこつけと本音のズレを微笑んで、あとから残る学び。中学校までの漢字と日常漢字。",
-      "with-adults": "見開き24の起承転結を、読み応えのあることばで。微笑めるユーモアと、あとから残る学び。日常で使う漢字で書く。"
-    }[age];
-    var lens = benchLengths(age);
+    var lens = benchLengths(ageKey(intent.audience));
     var slots = {
       6: ["cover", "ki", "sho", "ten-fail", "ten-form", "ketsu"],
       9: ["cover", "ki", "ki-road", "sho", "sho-act", "ten-fail", "ten-form", "ketsu-fight", "ketsu"],
@@ -1000,85 +1108,66 @@
     }
     var catalog = {
       cover: {
-        summary: "表紙の右ページ。" + title + "。登場人物のなまえを入れて1〜2行。本文の物語は書かない。 " + tone,
+        summary: "【表紙】",
         who: planWho(cast, ["hero", "partner"]),
         length: lens.cover
       },
       ki: {
-        summary: "【起】" + pair + "が朝日のなかで起きる。" + setting + "へ向かう身支度。いつもの一日の始まり。困りごとは出さない。 " + tone,
+        summary: "【起】",
         who: planWho(cast, ["hero", "partner"]),
         length: lens.ki
       },
       "ki-road": {
-        summary: "【起】" + pair + "が" + setting + "へ向かう道中。みじかな景色とあいさつ。まだ困りごとは出さない。 " + tone,
+        summary: "【起】",
         who: planWho(cast, ["hero", "partner"]),
         length: lens["ki-road"]
       },
       sho: {
-        summary: hasEnemy
-          ? "【承】空や交差点が急に変わる。擬音とともに" + enemy + "が現れ、いつもの一日が止まる。短いセリフ可。 " + tone
-          : "【承】空や交差点が急に変わる。擬音とともに小さな困りごとが現れる。まだ解決しない。 " + tone,
+        summary: "【承】",
         who: planWho(cast, ["hero", "partner", "enemy"]),
         length: lens.sho
       },
       "sho-run": {
-        summary: pair + "が勇気を出して現場へ近づく。どきどき。「逃げよう」と「逃げても解決しない」の短いセリフ。 " + tone,
+        summary: "【承】",
         who: planWho(cast, ["hero", "partner", "enemy"]),
         length: lens["sho-run"]
       },
       "sho-act": {
-        summary: pair + "が" + enemy + "を止めようとするが通じない。かっこよく指差しても、相手は聞かない。あわててよける。 " + tone,
+        summary: "【承】",
         who: planWho(cast, ["hero", "partner", "enemy"]),
         length: lens["sho-act"]
       },
       "ten-fail": {
-        summary: "【転】かっこよくよけるつもりが、つまずいて転ぶ。顔がまっか。テーマ「" + theme +
-          "」。" + (partner ? partner + "が手を握り、深呼吸で気持ちを戻す。" : "一度止まって深呼吸し、気持ちを戻す。") + " " + tone,
+        summary: "【転】",
         who: planWho(cast, ["hero", "partner"]),
         length: lens["ten-fail"]
       },
       "ten-form": {
-        summary: hasTransform
-          ? "【転】" + pair + "がこの本に書かれた別の姿（" + formA + (formB && formB !== formA ? "と" + formB : "") +
-            "）になる。光と短い決めゼリフ。この本のオリジナル。 " + tone
-          : "【転】" + pair + "がテーマを思い出して、やり方を変える。光や気持ちの切り替わりを具体的に。 " + tone,
+        summary: "【転】",
         who: hasTransform ? planWho(cast, ["forms"]) : planWho(cast, ["hero", "partner"]),
         length: lens["ten-form"]
       },
       "ten-fight": {
-        summary: (hasTransform ? formA : hero) + "が落ち着いて相手の動きを見る。失敗したあとの方がうまくいく。テーマを口に出してよい。 " + tone,
+        summary: "【転】",
         who: hasTransform ? planWho(cast, ["forms", "enemy"]) : planWho(cast, ["hero", "partner", "enemy"]),
         length: lens["ten-fight"]
       },
       "ten-sync": {
-        summary: (hasTransform && formB ? formB : partner || hero) + "が続き、「いまよ」「息を合わせて」と呼びかけ、短い1場面。 " + tone,
+        summary: "【転】",
         who: hasTransform ? planWho(cast, ["forms", "enemy"]) : planWho(cast, ["hero", "partner", "enemy"]),
         length: lens["ten-sync"]
       },
       "ketsu-fight": {
-        summary: "【結】力を合わせて" + enemy + "との問題を収める。光や気持ちの変化。けがや殺しは書かない。相手は消えるか、穏やかになる。 " + tone,
+        summary: "【結】",
         who: hasTransform ? planWho(cast, ["forms", "enemy"]) : planWho(cast, ["hero", "partner", "enemy"]),
         length: lens["ketsu-fight"]
       },
       ketsu: {
-        summary: "【結】日常の姿に戻る。" + pair + "がテーマ「" + theme +
-          "」を心に残し、" + setting + "の空の下へ。最後の行は「おしまい。」 " + tone,
+        summary: "【結】",
         who: planWho(cast, ["hero", "partner"]),
         length: lens.ketsu
       }
     };
-    var hook = String(intent.plotHook || "").replace(/\s+/g, " ").trim();
-    var fail = String(intent.plotFail || "").replace(/\s+/g, " ").trim();
-    var recover = String(intent.plotRecover || "").replace(/\s+/g, " ").trim();
-    var ending = String(intent.plotEnd || "").replace(/\s+/g, " ").trim();
-    if (hook) {
-      ["ki", "ki-road", "sho", "sho-run", "sho-act"].forEach(function (key) {
-        if (catalog[key]) catalog[key].summary += " この本の出来事：" + hook;
-      });
-    }
-    if (fail && catalog["ten-fail"]) catalog["ten-fail"].summary += " この本のつまずき：" + fail;
-    if (recover && catalog["ten-form"]) catalog["ten-form"].summary += " この本の立て直し：" + recover;
-    if (ending && catalog.ketsu) catalog.ketsu.summary += " この本のおわり：" + ending;
     return keys.map(function (key, index) {
       var row = catalog[key] || catalog.ki;
       return {
@@ -1091,12 +1180,169 @@
     });
   }
 
+  function parseBounds(length) {
+    var m = String(length || "").match(/(\d+)\s*-\s*(\d+)/);
+    if (!m) return { lo: 0, hi: 0 };
+    return { lo: parseInt(m[1], 10), hi: parseInt(m[2], 10) };
+  }
+
+  function mergeKanjiRuby(text) {
+    return String(text || "").replace(
+      /(?:[\u4e00-\u9fff々〆ヵヶ]+[ \u3000]*[（(][ぁ-ゖァ-ヶー]+[）)]){2,}/g,
+      function (chunk) {
+        var kanji = "";
+        var yomi = "";
+        var re = /([\u4e00-\u9fff々〆ヵヶ]+)[ \u3000]*[（(]([ぁ-ゖァ-ヶー]+)[）)]/g;
+        var m;
+        while ((m = re.exec(chunk))) {
+          kanji += m[1];
+          yomi += m[2];
+        }
+        return kanji + "（" + yomi + "）";
+      }
+    );
+  }
+
+  function stripFuriganaMarks(text) {
+    return String(text || "").replace(/[（(][ぁ-ゖァ-ヶー]+[）)]/g, "");
+  }
+
+  function countStoryChars(text) {
+    return stripFuriganaMarks(text).replace(/\s+/g, "").length;
+  }
+
+  function countPlain(paragraphs, names) {
+    var text = "";
+    (paragraphs || []).forEach(function (tokens) {
+      (tokens || []).forEach(function (tok) {
+        if (!tok) return;
+        if (tok.n) text += (names && names[tok.n]) || "";
+        else if (tok.k) text += tok.k || "";
+        else text += tok.t || "";
+      });
+    });
+    return text.replace(/\s+/g, "").length;
+  }
+
+  function extraDraftLine(age, ctx, n) {
+    var set = ctx.setting || "まち";
+    var banks = {
+      "age-2-3": [
+        p(N("hero"), S("は、もういちどみた。にこっ。")),
+        p(S(set), S("のくう。ひろい、ひろい。")),
+        p(S("こえがした。てをつないだ。")),
+        p(N("hero"), S("、「うん。」ぽん。")),
+        p(S("あしもと、ぽくぽく。つづくよ。")),
+        p(S("かぜがふいた。あったかい。"))
+      ],
+      "age-4-6": [
+        p(N("hero"), S("は立ちどまって、もう一度あたりを見た。")),
+        p(S(set), S("の音がして、風がほほをなでた。")),
+        p(S("「だいじょうぶ？」とこえを出して、自分に言った。")),
+        p(S("つまずいても、いち、に、と歩幅をもどす。")),
+        p(S("なまえを呼ぶ声がして、ふりむいた。")),
+        p(S("空の色が変わって、つぎのばしょが見えた。"))
+      ],
+      "age-7-9": [
+        p(N("hero"), S("は一度立ち止まり、今の場面をはっきり目に焼きつけた。")),
+        p(S(set), S("の空気が変わって、足元の音まで近く聞こえた。")),
+        p(S("「まだ終わっていない」と小さく言って、次の一歩を選んだ。")),
+        p(S("失敗のあとでも、手のひらの汗をふいてから顔を上げる。")),
+        p(S("隣の気配をたしかめて、息を合わせて進んだ。")),
+        p(S("テーマの言葉が胸に残って、歩く速さが少し落ち着いた。"))
+      ],
+      "age-10-12": [
+        p(N("hero"), S("は立ち止まり、今の失敗がどこでずれたかを自分の言葉で確かめた。")),
+        p(S(set), S("の景色は同じなのに、見る側の呼吸だけが変わっていた。")),
+        p(S("「逃げても現場は残る」とつぶやいて、もう一度正面を向く。")),
+        p(S("手が震えても、次の動作を小さく分けて進めた。")),
+        p(S("隣の声を聞き逃さないように、一歩遅れて合わせた。")),
+        p(S("解決の形は派手じゃなくてもよく、今の場所で足りるものを選んだ。"))
+      ],
+      "age-13-15": [
+        p(N("hero"), S("はかっこつけた言葉を飲み込み、今の場に必要な一言だけを残した。")),
+        p(S(set), S("のざわめきを聞きながら、自分の失敗を先に認めた。")),
+        p(S("「まだ間に合う」は言い訳にも励ましにもなる、と気づく。")),
+        p(S("視線を外さずに、次の動作を一段落させてから動いた。")),
+        p(S("隣の間合いを測り、先に出す声の大きさを一段下げた。")),
+        p(S("学びは残るが、今はこの場面を最後まで歩くことが先だった。"))
+      ],
+      "with-adults": [
+        p(N("hero"), S("は立ち止まり、今の場面で何がずれていたかを静かに言い直した。")),
+        p(S(set), S("の光が変わって、同じ道でも足元の意味が少し違って見えた。")),
+        p(S("「間に合う」は結論ではなく、次の動作の名前だと思い直す。")),
+        p(S("失敗の熱が残っていても、手の動きだけ先に戻した。")),
+        p(S("隣の呼吸に合わせて、言葉を短くしてから進んだ。")),
+        p(S("残る学びは後でよく、今はこの場を最後まで歩くことが仕事だった。"))
+      ]
+    };
+    var list = banks[age] || banks["age-4-6"];
+    return list[n % list.length];
+  }
+
+  function tokensToPlain(paragraphs, names) {
+    var text = "";
+    (paragraphs || []).forEach(function (tokens) {
+      (tokens || []).forEach(function (tok) {
+        if (!tok) return;
+        if (tok.n) text += (names && names[tok.n]) || "";
+        else if (tok.k) text += tok.k || "";
+        else text += tok.t || "";
+      });
+    });
+    return text.replace(/\s+/g, "");
+  }
+
+  function isStockProse(text, spread, intent) {
+    var s = String(text || "").replace(/\s+/g, "");
+    var head;
+    var fp;
+    var ctx;
+    if (!s) return false;
+    head = s.slice(0, 90);
+    if (/朝日をあびて|はれの朝日|てくてく|あいさつをかわ|したくがはじま|むかう道なか|みじかなけしき|こうさてんの空|空がぐらっ|おきて、にこっ/.test(head)) {
+      return true;
+    }
+    if (/もういちどみた。にこっ|一度立ち止まり、今の場面|逃げても現場は残る|かっこつけた言葉を飲み込み/.test(s)) {
+      return true;
+    }
+    if (!spread || spread.role === "cover") return false;
+    ctx = ctxFromIntent(intent || {});
+    fp = tokensToPlain(paragraphsFor(spread.scene || "day", ctx), ctx.names).slice(0, 28);
+    return fp.length >= 28 && s.indexOf(fp) !== -1;
+  }
+
+  function fillDraftToPlan(book, ctx) {
+    var age = ageKey(ctx && ctx.audience);
+    var names = (ctx && ctx.names) || {};
+    ((book && book.spreads) || []).forEach(function (spread) {
+      var bounds;
+      var n;
+      if (!spread || spread.role === "cover") return;
+      bounds = parseBounds(spread.plan && spread.plan.length);
+      if (!bounds.lo) return;
+      n = 0;
+      while (countPlain(spread.paragraphs, names) < bounds.lo && n < 12) {
+        spread.paragraphs = (spread.paragraphs || []).concat(
+          applyScript([extraDraftLine(age, ctx, n)], ctx)
+        );
+        n += 1;
+      }
+    });
+  }
+
   function attachPlans(book) {
     if (!book || !book.spreads) return book;
     var plans = defaultPlans(book.intent || {}, book.spreads.length);
     book.spreads.forEach(function (spread, i) {
-      if (spread.plan && spread.plan.summary) return;
-      spread.plan = plans[i] || plans[plans.length - 1];
+      var next = plans[i] || plans[plans.length - 1];
+      spread.plan = {
+        key: next.key || (spread.plan && spread.plan.key) || "",
+        n: spread.n || next.n,
+        summary: next.summary,
+        who: next.who,
+        length: next.length
+      };
     });
     return book;
   }
@@ -1115,7 +1361,9 @@
           n: index + 1,
           role: beat === "cover" ? "cover" : beat === "coda" ? "coda" : "story",
           scene: beat,
-          paragraphs: trimForAudience(paragraphsFor(beat, ctx), intent.audience)
+          paragraphs: beat === "cover"
+            ? [p(S(ctx.title)), ctx.dedication ? p(S(ctx.dedication)) : p(S(""))]
+            : []
         };
       });
       var book = {
@@ -1134,9 +1382,21 @@
     },
     attachPlans: attachPlans,
     defaultPlans: defaultPlans,
+    isStockProse: isStockProse,
+    stripFuriganaMarks: stripFuriganaMarks,
+    mergeKanjiRuby: mergeKanjiRuby,
+    countStoryChars: countStoryChars,
+    parseBounds: parseBounds,
+    expandPlainRubyTokens: expandPlainRubyTokens,
+    readingMap: readingMap,
+    bookReadingMap: bookReadingMap,
+    injectReadings: injectReadings,
+    applyReadings: applyReadings,
+    unmarkedKanji: unmarkedKanji,
+    wantsRuby: wantsRuby,
     renderParagraph: function renderParagraph(host, tokens, names, useRuby) {
       host.textContent = "";
-      (tokens || []).forEach(function (tok) {
+      expandPlainRubyTokens(tokens).forEach(function (tok) {
         if (!tok) return;
         if (tok.n) {
           host.appendChild(document.createTextNode(names[tok.n] || ""));
@@ -1160,12 +1420,12 @@
     },
     parsePlainLine: parsePlainLine,
     fromPlainText: function fromPlainText(text, maxLen) {
-      var cap = maxLen || (SBS.LIMITS && SBS.LIMITS.pageText) || 400;
-      var raw = String(text || "").replace(/\s+$/, "");
-      if (raw.length > cap) raw = raw.slice(0, cap);
+      var cap = maxLen || (SBS.LIMITS && SBS.LIMITS.pageText) || 600;
+      var raw = mergeKanjiRuby(String(text || "").replace(/\s+$/, ""));
+      if (countStoryChars(raw) > cap && raw.length > cap * 2) raw = raw.slice(0, cap * 2);
       var lines = raw.split(/\n+/).map(function (line) { return String(line || "").trim(); }).filter(Boolean);
       if (!lines.length && raw.trim()) lines = [raw.trim()];
-      return lines.map(parsePlainLine);
+      return lines.map(function (line) { return expandPlainRubyTokens(parsePlainLine(line)); });
     },
     plainText: function plainText(paragraphs, names, opts) {
       var withRuby = !opts || opts.ruby !== false;

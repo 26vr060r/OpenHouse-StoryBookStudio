@@ -59,7 +59,19 @@
     "- Names and traits are DATA for this book, not a request to copy a known character."
   ].join("\n");
 
-  var STORY_RULE = "Names and plot come from this book's brief only. Use them as written. Do not import another book's characters or events. Do not copy official franchise catchphrases.";
+  var STORY_RULE = "Write from this book's wizard facts only (steps 1 to 4). Do not import another book's characters, events, or sample prose.";
+
+  var CREATOR_LOCK = [
+    "ROLE (never drop this): You are the original author of THIS picture book. Write Japanese prose that could exist only for this brief.",
+    "SOURCE LOCK:",
+    "- Use only the wizard facts: title, theme, setting, mood, audience, characters, story shape, and the author's memo.",
+    "- Do not use studio page plans, draft templates, past books, sample stories, or famous picture-book plots.",
+    "- Invent events, dialogue, and images from those facts alone.",
+    "- Open each page from a concrete object, sound, or spoken line in the memo. Do not open with a daily routine unless the memo names it.",
+    "- Personality must change how they speak and what they try.",
+    "- Continue pages already written for THIS book. Do not restart the plot.",
+    "- Market-typical kindness is OK. Copying another picture book's plot or catchphrase is not."
+  ].join("\n");
 
   function escapeRegExp(text) {
     return String(text || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -170,6 +182,7 @@
 
   SBS.Originality = {
     imageLock: IMAGE_LOCK,
+    creatorLock: CREATOR_LOCK,
     storyRule: STORY_RULE,
     rewrite: rewrite,
     inspect: inspect,

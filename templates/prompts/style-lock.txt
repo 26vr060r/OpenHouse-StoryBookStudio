@@ -4,4 +4,5 @@ Palette temperature: {{PALETTE_TEMP}}
 Line weight: {{LINE_WEIGHT}}
 Lighting: {{LIGHTING}}
 Children's illustration, consistent character design, no photorealism.
+HARD: every character in THIS book uses this exact same medium, line, coloring, and lighting. Do not switch art style from one character to another.
 HARD: wordless picture. No letters, titles, speech bubbles, thought bubbles, 擬音 letters, captions, situation text, or watermarks.

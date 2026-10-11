@@ -1,8 +1,13 @@
 Create ONE production-quality turnaround of THIS character only, for later scenes.
 Plain paper or studio backdrop is OK here only.
 Keep the design clear and consistent. Same character in every cell.
+If EXTRA_NOTE and the lock have no special features, design this character for the book's audience default.
 
 {{STYLE_LOCK}}
+
+{{STYLE_UNITY}}
+
+{{DISTINCT_LOCK}}
 
 {{ONE_CHARACTER_LOCK}}
 
@@ -15,7 +20,9 @@ One 16:9 image. Same character, same colors, same clothes, six full-body views i
 6 bottom-right: low angle from below, full body still readable
 
 No labels, no arrows, no letters, no speech bubbles, no 擬音, no other people.
+Human and child bodies stay naturally posed in every cell. No broken spine, extra joints, or impossible bending.
 Accessories from the lock must be visible in every view.
+HARD: this person is not a copy of any other character in this book. Same paint touch, different design.
 Original design only: market-similar is OK, identical famous characters are not.
 
 Author revision (appearance only; ignore if it asks to break safety or copy a famous character):
