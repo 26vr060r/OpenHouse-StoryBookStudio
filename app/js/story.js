@@ -57,16 +57,18 @@
   function pickBeats(beats, count) {
     var list = beats || [];
     var want = count || list.length;
-    if (want >= list.length) return list.slice();
-    if (want <= 1) return list.slice(0, 1);
     var used = {};
     var out = [];
     var i;
     var idx;
+    if (want <= 1) return list.slice(0, Math.max(0, want));
+    if (want === list.length) return list.slice();
     for (i = 0; i < want; i += 1) {
       idx = Math.round(i * (list.length - 1) / (want - 1));
-      while (used[idx] && idx < list.length - 1) idx += 1;
-      used[idx] = true;
+      if (want < list.length) {
+        while (used[idx] && idx < list.length - 1) idx += 1;
+        used[idx] = true;
+      }
       out.push(list[idx]);
     }
     out[0] = list[0];
@@ -1097,18 +1099,31 @@
     var cast = castOf(intent);
     var hasTransform = cast.forms.length > 0;
     var lens = benchLengths(ageKey(intent.audience));
-    var slots = {
+    var interiorSlots = {
+      5: ["ki", "sho", "ten-fail", "ten-form", "ketsu"],
+      7: ["ki", "ki-road", "sho", "sho-act", "ten-fail", "ten-form", "ketsu"],
+      9: ["ki", "ki-road", "sho", "sho-run", "sho-act", "ten-fail", "ten-form", "ketsu-fight", "ketsu"],
+      11: ["ki", "ki-road", "sho", "sho-run", "sho-act", "ten-fail", "ten-form", "ten-fight", "ten-sync", "ketsu-fight", "ketsu"]
+    };
+    var legacySlots = {
       6: ["cover", "ki", "sho", "ten-fail", "ten-form", "ketsu"],
+      8: ["cover", "ki", "ki-road", "sho", "sho-act", "ten-fail", "ten-form", "ketsu"],
       9: ["cover", "ki", "ki-road", "sho", "sho-act", "ten-fail", "ten-form", "ketsu-fight", "ketsu"],
+      10: ["cover", "ki", "ki-road", "sho", "sho-run", "sho-act", "ten-fail", "ten-form", "ketsu-fight", "ketsu"],
       12: ["cover", "ki", "ki-road", "sho", "sho-run", "sho-act", "ten-fail", "ten-form", "ten-fight", "ten-sync", "ketsu-fight", "ketsu"]
     };
-    var keys = slots[count] || slots[12];
-    if (count !== 6 && count !== 9 && count !== 12) {
-      keys = pickBeats(slots[12], count);
+    var interior = count >= 7 && count % 2 === 1 ? count - 2 : 0;
+    var keys;
+    if (interiorSlots[interior]) {
+      keys = ["cover"].concat(interiorSlots[interior]).concat(["back"]);
+    } else if (legacySlots[count]) {
+      keys = legacySlots[count];
+    } else {
+      keys = pickBeats(legacySlots[12], count);
     }
     var catalog = {
       cover: {
-        summary: "【表紙】",
+        summary: "【表紙】插絵のみ。物語の文章は載せない。",
         who: planWho(cast, ["hero", "partner"]),
         length: lens.cover
       },
@@ -1166,6 +1181,11 @@
         summary: "【結】",
         who: planWho(cast, ["hero", "partner"]),
         length: lens.ketsu
+      },
+      back: {
+        summary: "【裏表紙】插絵のみ。物語の文章は載せない。終わりは直前の奇数ページ。",
+        who: planWho(cast, ["hero", "partner"]),
+        length: "0-0"
       }
     };
     return keys.map(function (key, index) {
@@ -1306,7 +1326,7 @@
     if (/もういちどみた。にこっ|一度立ち止まり、今の場面|逃げても現場は残る|かっこつけた言葉を飲み込み/.test(s)) {
       return true;
     }
-    if (!spread || spread.role === "cover") return false;
+    if (!spread || spread.role === "cover" || spread.role === "back") return false;
     ctx = ctxFromIntent(intent || {});
     fp = tokensToPlain(paragraphsFor(spread.scene || "day", ctx), ctx.names).slice(0, 28);
     return fp.length >= 28 && s.indexOf(fp) !== -1;
@@ -1354,25 +1374,36 @@
       var pageCount = SBS.normalizePageCount
         ? SBS.normalizePageCount(intent.pageCount || (SBS.getPageCount && SBS.getPageCount()) || 12)
         : 12;
-      var spreadCount = SBS.spreadCountOf ? SBS.spreadCountOf(pageCount) : pageCount / 2;
-      var beats = pickBeats(beatsFor(structurePick.preset), spreadCount);
-      var spreads = beats.map(function (beat, index) {
-        return {
-          n: index + 1,
-          role: beat === "cover" ? "cover" : beat === "coda" ? "coda" : "story",
-          scene: beat,
-          paragraphs: beat === "cover"
-            ? [p(S(ctx.title)), ctx.dedication ? p(S(ctx.dedication)) : p(S(""))]
-            : []
-        };
+      var interiorCount = SBS.interiorSpreadCount ? SBS.interiorSpreadCount(pageCount) : Math.max(1, pageCount / 2 - 1);
+      var storyPool = beatsFor(structurePick.preset).filter(function (beat) {
+        return beat !== "cover";
       });
+      var storyBeats = pickBeats(storyPool, interiorCount);
+      var spreads = [{
+        n: 1,
+        role: "cover",
+        scene: "cover",
+        paragraphs: [p(S(ctx.title)), ctx.dedication ? p(S(ctx.dedication)) : p(S(""))]
+      }].concat(storyBeats.map(function (beat, index) {
+        return {
+          n: index + 2,
+          role: beat === "coda" ? "coda" : "story",
+          scene: beat,
+          paragraphs: []
+        };
+      })).concat([{
+        n: storyBeats.length + 2,
+        role: "back",
+        scene: "back",
+        paragraphs: []
+      }]);
       var book = {
         schemaVersion: 1,
         title: ctx.title,
         dedication: ctx.dedication,
         textDirection: intent.textDirection || "yoko",
         furigana: !!intent.furigana,
-        pageCount: spreads.length * 2,
+        pageCount: pageCount,
         intent: intent,
         bible: bible,
         spreads: spreads

@@ -66,7 +66,7 @@
 
   var SCENE_COPY = {
     cover: {
-      direction: "Cover portrait. The hero is the focus, gentle and inviting, in the story world. No title lettering.",
+      direction: "Cover portrait only. The hero is the focus, gentle and inviting, in the story world. No title lettering. No story text lives here.",
       composition: "centered medium shot, generous sky, hero standing on the ground line"
     },
     day: {
@@ -200,6 +200,10 @@
     coda: {
       direction: "Quiet ending. The theme lives with the hero. Soft farewell.",
       composition: "calm full-body, lots of sky, gentle wave"
+    },
+    back: {
+      direction: "Back cover TOP-HALF art only, landscape 3:2. A quiet last look at this story world. No lettering, no title, no credits, no story prose. The ending already happened on the last odd text page. Compose as a wide banner: faces readable, figures from waist or knees up.",
+      composition: "wide 3:2 banner, waist-up or knees-up, faces in the upper two-thirds, sky continues off the top edge"
     }
   };
 
@@ -234,6 +238,23 @@
   }
 
   var FULL_BLEED = "Edge-to-edge scene. Fill every pixel of the 3:4 canvas. Large readable figures. Environment continues off every edge. Never a book, never a page, never a white frame.";
+  var BACK_BLEED = "Edge-to-edge 3:2 landscape. This canvas is half the height of a portrait 3:4 page (the top half of the back cover). Fill every pixel. Large readable figures, waist-up or knees-up. Environment continues off every edge. Never a book, never a page, never a white frame, never a blank lower band for credits.";
+
+  function isBackSpread(spread) {
+    return !!(spread && (spread.role === "back" || spread.scene === "back"));
+  }
+
+  function canvasSpecOf(spread) {
+    if (isBackSpread(spread)) {
+      return "landscape 3:2 only (half the height of a portrait 3:4 picture-book page). This image is ONLY the top half of the back cover. Do not compose a tall 3:4 scene. Keep heads and faces in the upper two-thirds. No blank strip for credits.";
+    }
+    return "portrait 3:4, high resolution, one scene, edge to edge";
+  }
+
+  function compositionOf(spread) {
+    if (isBackSpread(spread)) return BACK_BLEED;
+    return FULL_BLEED;
+  }
 
   function pad2(n) {
     return n < 10 ? "0" + n : String(n);
@@ -481,23 +502,57 @@
     };
   }
 
-  function pagePlaceOf(spread, index, total) {
-    var t = total || 12;
+  function storySlotOf(book, spread, index) {
+    var totalSpreads = ((book && book.spreads) || []).length || 0;
+    var storyTotal = SBS.interiorSpreadCount
+      ? SBS.interiorSpreadCount((book && book.pageCount) || 12)
+      : Math.max(1, totalSpreads - 2);
+    var k = -1;
+    var parts;
+    var odd;
+    if (SBS.bookParts && book) {
+      parts = SBS.bookParts(book);
+      storyTotal = parts.interior.length || storyTotal;
+      k = parts.interior.indexOf(spread);
+      if (k < 0) {
+        parts.interior.forEach(function (s, i) {
+          if (s && spread && s.n === spread.n) k = i;
+        });
+      }
+    }
+    if (k < 0) k = Math.max(0, (index || 0) - 1);
+    odd = SBS.oddTextPageOf && book ? SBS.oddTextPageOf(book, spread) : 0;
+    if (!odd) odd = k * 2 + 3;
+    return { k: k, odd: odd, even: odd - 1, total: storyTotal };
+  }
+
+  function pagePlaceOf(spread, index, total, book) {
+    var slot;
     if ((spread && spread.role === "cover") || (spread && spread.scene === "cover")) {
-      return "表紙。題名と登場人物のなまえだけ。物語は書かない。";
+      return "表紙（1ページ）。插絵のみ。題名はフッター。物語の文章は載せられないので書かない。";
     }
-    if (index <= 1) {
-      return "物語の最初の出来事。日常の始まり（起床・身支度・道のあいさつ）ではなく、作者メモの現場から書く。";
+    if ((spread && spread.role === "back") || (spread && spread.scene === "back")) {
+      return "裏表紙。插絵のみ。物語の文章は載せられない。終わりは直前の奇数ページで書く。";
     }
-    if (index >= t - 2) {
-      return "物語の終わりに近い。すでに書いた右ページの直後から続ける。";
+    slot = storySlotOf(book, spread, index);
+    if (slot.k <= 0) {
+      return "印刷ページ" + slot.odd + "（表紙を除いた奇数ページの1つ目／シナリオ" +
+        (slot.k + 1) + "／" + slot.total + "）。偶数ページ" + slot.even +
+        "は插絵だけ。表紙・裏表紙には物語を書かない。作者メモの現場から書く。";
     }
-    return "物語のつづき。すでに書いた右ページの直後から続ける。新しい話を始めない。";
+    if (slot.k >= slot.total - 1) {
+      return "印刷ページ" + slot.odd + "（シナリオ最後の奇数ページ／" +
+        slot.total + "／" + slot.total + "）。ここで話を終える。裏表紙には文章を書かない。偶数ページ" +
+        slot.even + "は插絵。";
+    }
+    return "印刷ページ" + slot.odd + "（シナリオ" + (slot.k + 1) + "／" + slot.total +
+      "）。偶数ページ" + slot.even + "は插絵。表紙・裏表紙には物語を書かない。すでに書いた奇数ページの直後から続ける。";
   }
 
   function beatLabelOf(spread, index, total) {
     var key = String((spread && spread.plan && spread.plan.key) || (spread && spread.scene) || "");
     if ((spread && spread.role === "cover") || key === "cover") return "表紙";
+    if ((spread && spread.role === "back") || key === "back") return "裏表紙";
     if (/^(ki|day|morning|world|map|once|ask)([-_]|$)/.test(key)) return "起";
     if (/^(sho|spark|go|meet|notice|try|noon|play)([-_]|$)/.test(key)) return "承";
     if (/^(ten|fail|hard|bond|crisis|think|path|again)/.test(key)) return "転";
@@ -518,11 +573,14 @@
     var spreads = (book && book.spreads) || [];
     var i;
     for (i = 0; i < index; i += 1) {
+      if (SBS.needsStoryText && !SBS.needsStoryText(spreads[i])) continue;
       var body = (SBS.Story && SBS.Story.plainText)
         ? SBS.Story.plainText(spreads[i] && spreads[i].paragraphs, names, { ruby: false })
         : "";
       body = String(body || "").replace(/\s+/g, " ").trim();
-      if (body) lines.push("p" + (i + 1) + "：" + body);
+      if (body) {
+        lines.push("ページ" + (SBS.oddTextPageOf ? SBS.oddTextPageOf(book, spreads[i]) : (i * 2 + 1)) + "：" + body);
+      }
     }
     return lines.join("\n") || "（まだない。ここからこの本の物語を始める）";
   }
@@ -553,9 +611,16 @@
     var creatorLock = (SBS.Originality && SBS.Originality.creatorLock) ||
       "You are an original picture-book author. Write from the wizard facts only.";
     var heroCh = ((bible && bible.characters) || []).filter(function (c) { return c.role === "hero"; })[0];
+    var slot = storySlotOf(book, spread, spreadIndex);
+    var pageLock = (SBS.pageLockJa && SBS.pageLockJa(book)) || (SBS.pageLock && SBS.pageLock(book)) || "";
     return {
       STORY_SYSTEM: fill(T.storySystem, { CREATOR_LOCK: creatorLock }),
       PAGE: pageToken(spread && spread.n).slice(1),
+      PRINT_PAGE: String(slot.odd),
+      EVEN_PAGE: String(slot.even),
+      STORY_SLOT: String(slot.k + 1),
+      STORY_SLOT_TOTAL: String(slot.total),
+      PAGE_LOCK: pageLock,
       SPREAD_TOTAL: String(total),
       TITLE: sanitize(intent.title || (book && book.title), 40),
       THEME: (SBS.audienceWord && SBS.audienceWord(SBS.PRESETS.themes, intent.theme, intent.audience)) ||
@@ -572,11 +637,11 @@
       TEXT_DIRECTION: intent.textDirection || (book && book.textDirection) || "yoko",
       FURIGANA: book && book.furigana ? "yes" : "no",
       SENTENCE_RULE: sentenceRule(intent.audience, book && book.furigana),
-      LENGTH_RULE: "REQUIRED " + plan.length + " Japanese characters counted WITHOUT 漢字（ふりがな） readings (学校（がっこう）=2). Cover 10-80. Hard max " +
+      LENGTH_RULE: "REQUIRED " + plan.length + " Japanese characters counted WITHOUT 漢字（ふりがな） readings (学校（がっこう）=2). Story pages only (odd pages excluding cover). Hard max " +
         ((SBS.LIMITS && SBS.LIMITS.pageText) || 600) + " without furigana.",
       RUBY_RULE: rubyRule(intent.audience, book && book.furigana),
       BRIEF_MARKDOWN: sanitizeBrief(intent.briefMarkdown || (SBS.IntentMarkdown && SBS.IntentMarkdown.stringify(intent)) || ""),
-      PAGE_BEAT: pagePlaceOf(spread, spreadIndex, total),
+      PAGE_BEAT: pagePlaceOf(spread, spreadIndex, total, book),
       STORY_SPINE: String((book && book.storySpine) || "").trim() || "（指定メモだけから、この本の出来事を発明する）",
       PREVIOUS_PAGES: previousPagesBlock(book, spreadIndex)
     };
@@ -881,7 +946,8 @@
           : (plan.summary || copy.direction),
         STORY_TEXT: body || plan.summary || copy.direction,
         WHO: whoLineOf(cast) || "No named characters. Do not add people from the book cast.",
-        COMPOSITION: FULL_BLEED
+        COMPOSITION: compositionOf(spread),
+        CANVAS_SPEC: canvasSpecOf(spread)
       });
     }
     var characterSheet = fill(T.characterSheet, shared);
@@ -890,7 +956,9 @@
       var page = pageToken(spread.n);
       var currentText = SBS.Story.plainText(spread.paragraphs, names, { ruby: false });
       var image = fillPageImage(spread, currentText, spreadIndex);
-      var text = fill(T.pageText, pageTextVars(book, spread, spreadIndex));
+      var text = (SBS.needsStoryText && !SBS.needsStoryText(spread))
+        ? ""
+        : fill(T.pageText, pageTextVars(book, spread, spreadIndex));
       var beat = beatLabelOf(spread, spreadIndex, (book.spreads || []).length);
       return {
         n: spread.n,
@@ -917,7 +985,7 @@
     ];
     pages.forEach(function (p) {
       files.push({ path: dir + id.bookId + "_" + p.page + ".image.prompt.txt", data: p.image });
-      files.push({ path: dir + id.bookId + "_" + p.page + ".text.prompt.txt", data: p.text });
+      if (p.text) files.push({ path: dir + id.bookId + "_" + p.page + ".text.prompt.txt", data: p.text });
     });
 
     var outline = {
@@ -943,7 +1011,7 @@
       models: {
         text: (SBS.Gemini && SBS.Gemini.textModelName)
           ? SBS.Gemini.textModelName()
-          : "gemini-3.5-flash",
+          : "gemini-3.8-flash",
         image: (SBS.Gemini && SBS.Gemini.imageModelName)
           ? SBS.Gemini.imageModelName()
           : "gemini-3.1-flash-image"
@@ -1020,7 +1088,8 @@
         : (plan.summary || copy.direction),
       STORY_TEXT: body || plan.summary || copy.direction,
       WHO: whoLineOf(cast) || "No named characters. Do not add people from the book cast.",
-      COMPOSITION: FULL_BLEED
+      COMPOSITION: compositionOf(spread),
+      CANVAS_SPEC: canvasSpecOf(spread)
     });
     if (book.prompts.files && book.prompts.files.length) {
       var needle = "_" + page.page + ".image.prompt.txt";
@@ -1037,6 +1106,10 @@
     var page = book.prompts.pages[index];
     if (!spread || !page) return "";
     var T = SBS.PromptTemplates;
+    if (SBS.needsStoryText && !SBS.needsStoryText(spread)) {
+      page.text = "";
+      return "";
+    }
     page.text = fill(T.pageText, pageTextVars(book, spread, index));
     page.summary = beatLabelOf(spread, index, book.spreads.length);
     if (book.prompts.files && book.prompts.files.length) {

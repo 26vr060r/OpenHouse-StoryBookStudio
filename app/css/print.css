@@ -40,6 +40,114 @@
   page-break-after: always;
 }
 
+.print-cover {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  background: #efe3d0;
+}
+
+.print-cover-art {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.print-cover-footer {
+  flex: 0 0 auto;
+  padding: 2.5mm 3.4mm 2.8mm;
+  background: #fffdf8;
+  text-align: center;
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", serif;
+}
+
+.print-cover-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #3a2a22;
+}
+
+.print-cover-names {
+  margin: 0.15em 0 0;
+  font-size: 0.72rem;
+  font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+  color: #6b5348;
+}
+
+.print-sheet.print-wrap .print-cover,
+.print-sheet.print-wrap .print-back {
+  aspect-ratio: auto;
+  width: auto;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  border: 0;
+}
+
+.print-leaf.print-cover {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.print-back {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.print-back-art {
+  flex: 0 0 50%;
+  height: 50%;
+  overflow: hidden;
+  background: #efe3d0;
+}
+
+.print-back-legal {
+  --page-size: 11.5px;
+  --page-lead: 1.32;
+  --page-gap: 0.18em;
+  --page-pad: 0.05em;
+  flex: 0 0 50%;
+  height: 50%;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 2.8mm 4mm 2.6mm;
+  font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+  font-size: var(--page-size);
+  line-height: var(--page-lead);
+  color: #3a2a22;
+}
+
+.print-back-legal h2 {
+  font-size: 1.16em;
+  margin: 0 0 0.28em;
+  font-weight: 700;
+}
+
+.print-back-legal h3 {
+  font-size: 1.04em;
+  margin: 0.42em 0 0.12em;
+  font-weight: 700;
+}
+
+.print-back-legal a {
+  color: inherit;
+  word-break: break-all;
+}
+
+.print-back-legal p {
+  margin: 0 0 var(--page-gap);
+  text-align: justify;
+  text-justify: inter-character;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .print-page {
   min-height: 0;
   height: 100%;
@@ -51,6 +159,10 @@
   overflow: hidden;
   border-right: 1px solid #eadfce;
   background: #efe3d0;
+}
+
+.print-page.right.print-cover {
+  padding: 0;
 }
 
 .print-page.right,
@@ -116,6 +228,13 @@
   object-fit: cover;
 }
 
+.print-cover .print-art,
+.print-back-art .print-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .print-leaf ruby {
   ruby-position: over;
   ruby-align: center;
@@ -144,6 +263,13 @@
   overflow: hidden;
 }
 
+.print-leaf.print-back {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 .colophon-line {
   margin-top: 0.55em;
   font-size: 0.82em;
@@ -157,7 +283,8 @@ body.print-mode .sprint-pill {
   display: none;
 }
 
-body.print-kind-booklet .print-sheet {
+body.print-kind-booklet .print-sheet,
+body.print-kind-booklet .print-cover:not(.print-leaf) {
   display: none;
 }
 
@@ -233,6 +360,20 @@ body.print-kind-spread .print-leaf {
     page-break-after: always;
   }
 
+  body.print-kind-spread .print-sheet .print-cover,
+  body.print-kind-spread .print-sheet .print-back {
+    display: flex !important;
+    flex-direction: column;
+    width: auto;
+    height: 100%;
+    margin: 0;
+    border: 0;
+  }
+
+  body.print-kind-spread .print-page.right.print-cover {
+    padding: 0;
+  }
+
   body.print-kind-spread .print-page.left {
     padding: 0;
     overflow: hidden;
@@ -262,6 +403,13 @@ body.print-kind-spread .print-leaf {
     aspect-ratio: auto;
     break-after: page;
     page-break-after: always;
+  }
+
+  body.print-kind-booklet .print-leaf.print-back,
+  body.print-kind-booklet .print-leaf.print-cover {
+    display: flex !important;
+    flex-direction: column;
+    padding: 0;
   }
 
   body.print-kind-booklet .print-leaf.text {

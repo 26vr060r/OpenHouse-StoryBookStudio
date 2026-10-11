@@ -12,7 +12,7 @@
   };
 
   var PAGE_KEY = "sbs-page-count";
-  var PAGE_COUNTS = [12, 18, 24];
+  var PAGE_COUNTS = [12, 16, 20, 24];
 
   function normalizePageCount(value) {
     var n = parseInt(value, 10);
@@ -42,9 +42,114 @@
     return Math.round(normalizePageCount(pages) / 2);
   };
 
+  SBS.interiorSpreadCount = function interiorSpreadCount(pages) {
+    return Math.max(1, (normalizePageCount(pages) - 2) / 2);
+  };
+
+  SBS.contentUnitCount = function contentUnitCount(pages) {
+    return SBS.interiorSpreadCount(pages) + 2;
+  };
+
+  SBS.needsStoryText = function needsStoryText(spread) {
+    return !!(spread && spread.role !== "cover" && spread.role !== "back");
+  };
+
+  SBS.storyPageNumbers = function storyPageNumbers(pages) {
+    var n = normalizePageCount(pages);
+    var out = [];
+    var p;
+    for (p = 3; p <= n - 1; p += 2) out.push(p);
+    return out;
+  };
+
+  SBS.oddTextPageOf = function oddTextPageOf(book, spread) {
+    var parts = SBS.bookParts ? SBS.bookParts(book) : null;
+    var list = parts ? parts.interior : [];
+    var k = list.indexOf(spread);
+    if (k < 0) {
+      list.forEach(function (s, i) {
+        if (s && spread && s.n === spread.n) k = i;
+      });
+    }
+    if (k < 0) return 0;
+    return k * 2 + 3;
+  };
+
+  SBS.pageLock = function pageLock(book) {
+    var n = book && SBS.bookPageCount ? SBS.bookPageCount(book) : SBS.getPageCount();
+    var odds = SBS.storyPageNumbers(n);
+    return [
+      "HARD PAGE RULE (never override): Cover (page 1) and back cover (page " + n + ") cannot carry story text because they are illustration-only.",
+      "Even pages are illustrations only and never receive prose.",
+      "Design and write the entire scenario ONLY on odd pages excluding the cover: pages " + odds.join(", ") + " (" + odds.length + " pages).",
+      "The ending belongs on page " + odds[odds.length - 1] + ", not the back cover.",
+      "Do not put plot, dialogue, or narration on the cover, even pages, or the back cover."
+    ].join(" ");
+  };
+
+  SBS.pageLockJa = function pageLockJa(book) {
+    var n = book && SBS.bookPageCount ? SBS.bookPageCount(book) : SBS.getPageCount();
+    var odds = SBS.storyPageNumbers(n);
+    return "絶対ルール：表紙（1ページ）と裏表紙（" + n +
+      "ページ）は插絵だけで文章を載せられない。偶数ページも插絵だけ。" +
+      "シナリオは表紙を除いた奇数ページ（" + odds.join("、") + "の" + odds.length +
+      "ページ）だけで設計し、そこにだけ本文を書く。終わりのできごとは" +
+      odds[odds.length - 1] + "ページ。表紙・偶数ページ・裏表紙に物語・セリフ・地の文を書かない。";
+  };
+
   SBS.pageModeLabel = function pageModeLabel(pages) {
     var n = pages == null ? SBS.getPageCount() : normalizePageCount(pages);
     return "見開き" + n + "ページ";
+  };
+
+  SBS.bookParts = function bookParts(book) {
+    var spreads = (book && book.spreads) || [];
+    var cover = null;
+    var back = null;
+    var interior = [];
+    var i;
+    var s;
+    var src;
+    var pageCount;
+    for (i = 0; i < spreads.length; i += 1) {
+      s = spreads[i];
+      if (!s) continue;
+      if (s.role === "back") {
+        back = s;
+        continue;
+      }
+      if (s.role === "cover" || (!cover && i === 0)) {
+        cover = s;
+        continue;
+      }
+      interior.push(s);
+    }
+    if (!cover && spreads[0]) cover = spreads[0];
+    if (!back) {
+      src = interior.length ? interior[interior.length - 1] : cover;
+      back = {
+        role: "back",
+        scene: "back",
+        n: spreads.length + 1,
+        leftArt: src && src.leftArt,
+        paragraphs: [],
+        virtual: true
+      };
+    }
+    pageCount = parseInt(book && book.pageCount, 10) || 0;
+    if (!pageCount) pageCount = 2 + interior.length * 2;
+    return {
+      cover: cover,
+      interior: interior,
+      back: back,
+      pageCount: pageCount,
+      spreads: spreads
+    };
+  };
+
+  SBS.bookPageCount = function bookPageCount(book) {
+    if (!book) return SBS.getPageCount ? SBS.getPageCount() : 12;
+    return SBS.bookParts(book).pageCount;
   };
 
   SBS.PRESETS = {

@@ -18,7 +18,7 @@ Cast rule: {{CAST_ONCE_RULE}}
 Pose rule: {{POSE_RULE}}
 
 Technical:
-- portrait 3:4, high resolution, one scene, edge to edge
+- {{CANVAS_SPEC}}
 - HARD: wordless image. No speech bubbles, no thought bubbles, no situation text, no 擬音 letters, no captions. Story words stay off-canvas
 - attached images are identity locks by ID; do not invent a new design
 - place only the IDs listed in People in the scene

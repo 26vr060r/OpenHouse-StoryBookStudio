@@ -52,6 +52,32 @@
     }
   }
 
+  var confirmDone = null;
+
+  function finishConfirm(ok) {
+    var done = confirmDone;
+    confirmDone = null;
+    closeDialog("confirm-dialog");
+    if (done) done(!!ok);
+  }
+
+  function askConfirm(title, message, done) {
+    var dialog = $("confirm-dialog");
+    var titleEl = $("confirm-title");
+    var body = $("confirm-message");
+    if (!dialog || typeof dialog.showModal !== "function") {
+      var text = (title ? title + "\n" : "") + (message || "本当によいですか？");
+      var ok = false;
+      try { ok = window.confirm(text); } catch (err) { ok = false; }
+      if (done) done(ok);
+      return;
+    }
+    confirmDone = typeof done === "function" ? done : null;
+    if (titleEl) titleEl.textContent = title || "確認";
+    if (body) body.textContent = message || "本当によいですか？";
+    openDialog("confirm-dialog");
+  }
+
   function openDialog(id) {
     var dialog = $(id);
     if (!dialog) return;
@@ -115,6 +141,7 @@
     if (homeImage) homeImage.textContent = SBS.Gemini.imageTierLabel();
     if (homeNet) homeNet.textContent = SBS.Gemini.canCallNetwork() ? "送れます（http）" : "送れません（file:// など）";
     if (homeNote) homeNote.textContent = SBS.Gemini.statusMessage();
+    if (SBS.Consent && SBS.Consent.syncGate) SBS.Consent.syncGate();
   }
 
   function showScreen(name) {
@@ -126,6 +153,7 @@
     var print = $("screen-print");
     var review = $("screen-text-review");
     var chars = $("screen-char-review");
+    var consent = $("screen-consent");
     var lede = $("page-lede");
     if (home) home.hidden = name !== "home";
     if (wizard) wizard.hidden = name !== "wizard";
@@ -135,10 +163,13 @@
     if (print) print.hidden = name !== "print";
     if (review) review.hidden = name !== "text-review";
     if (chars) chars.hidden = name !== "char-review";
+    if (consent) consent.hidden = name !== "consent";
     document.body.classList.toggle("print-mode", name === "print");
     if (name !== "print") {
       document.body.classList.remove("print-kind-spread", "print-kind-booklet");
     }
+    if (name !== "consent" && SBS.Consent && SBS.Consent.stop) SBS.Consent.stop();
+    if (name === "home" && SBS.Consent && SBS.Consent.forget) SBS.Consent.forget();
     if (lede) {
       if (name === "wizard") {
         lede.textContent = (SBS.Wizard && SBS.Wizard.hasBook && SBS.Wizard.hasBook())
@@ -160,10 +191,13 @@
           : "登場人物の見た目を確認してから、絵本の絵を描きます。";
       }
       else if (name === "print") lede.textContent = "A4横の見開きで印刷します。";
+      else if (name === "consent") lede.textContent = "絵本をつくる前に、利用条件を確認してください。";
       else lede.textContent = homeLedeText();
     }
     if (name === "home") refreshGeminiStatus();
   }
+
+  SBS.showScreen = showScreen;
 
   var redrawing = false;
 
@@ -268,6 +302,33 @@
     SBS.Wizard.start(seed);
   }
 
+  function startPromptWizard() {
+    showScreen("wizard");
+    if (SBS.Wizard && SBS.Wizard.startPrompt) SBS.Wizard.startPrompt();
+    else startWizard(null);
+  }
+
+  function proceedCreate(kind) {
+    if (kind === "prompt") startPromptWizard();
+    else if (kind === "omakase") startOmakase();
+    else startWizard(null);
+  }
+
+  function beginCreate(kind) {
+    if (SBS.Consent && SBS.Consent.isRequired && SBS.Consent.isRequired() && SBS.Consent.open) {
+      SBS.Consent.open(function (accepted) {
+        if (!accepted) {
+          showScreen("home");
+          return;
+        }
+        proceedCreate(kind);
+      });
+      return;
+    }
+    if (SBS.Consent && SBS.Consent.forget) SBS.Consent.forget();
+    proceedCreate(kind);
+  }
+
   function paintAndOpen(nextBook) {
     writeThenReview(nextBook);
   }
@@ -350,16 +411,29 @@
     names.friend = names.friend || "";
     var cap = (SBS.LIMITS && SBS.LIMITS.pageText) || 600;
     var young = book.intent && (book.intent.audience === "age-2-3" || book.intent.audience === "age-4-6");
+    var interiorNo = 0;
     (book.spreads || []).forEach(function (spread, i) {
-      var wrap = document.createElement("article");
+      var wrap;
+      var label;
+      var bounds;
+      var range;
+      var pageLabel;
+      if (spread.role === "back") return;
+      wrap = document.createElement("article");
       wrap.className = "text-review-item";
-      var label = document.createElement("label");
-      var bounds = SBS.Story && SBS.Story.parseBounds
+      label = document.createElement("label");
+      bounds = SBS.Story && SBS.Story.parseBounds
         ? SBS.Story.parseBounds(spread.plan && spread.plan.length)
         : { lo: 0, hi: 0 };
-      var range = bounds.lo && bounds.hi ? "　目安 " + bounds.lo + "〜" + bounds.hi + "字" : "";
+      range = bounds.lo && bounds.hi ? "　目安 " + bounds.lo + "〜" + bounds.hi + "字" : "";
+      if (spread.role === "cover") {
+        pageLabel = "表紙（1ページ・フッターの題名）";
+      } else {
+        pageLabel = "右ページ " + (interiorNo * 2 + 3) + "（左の偶数" + (interiorNo * 2 + 2) + "は插絵）";
+        interiorNo += 1;
+      }
       label.className = "block-label";
-      label.textContent = "右ページ " + (i * 2 + 2) + "（見開き" + spread.n + "）" + range +
+      label.textContent = pageLabel + range +
         (book.furigana && !young ? "　ふりがなは絵本のルビ。ここには（ふりがな）を書かないでください" : "");
       var ta = document.createElement("textarea");
       ta.id = "review-text-" + i;
@@ -417,8 +491,9 @@
         text = text.split(/\n+/).filter(function (line) {
           return line.trim() && !/さく\s*[・･／\/]\s*え|作\s*[・･／\/]\s*絵|オリジナルさっか|さっか|作者クレジット/.test(line);
         }).join("\n");
+        if (!text) text = String(book.title || "").trim();
       }
-      if (!text) empty = true;
+      if ((!text || /このページの文章を[、, ]*ここに書いてください/.test(text)) && spread.role !== "cover") empty = true;
       var prev = SBS.Story.plainText(spread.paragraphs, names, { ruby: false }).replace(/\s+/g, " ").trim();
       spread.paragraphs = SBS.Story.fromPlainText(text, cap);
       if (book.furigana && SBS.Story.applyReadings) {
@@ -745,7 +820,7 @@
     var pages = SBS.normalizePageCount
       ? SBS.normalizePageCount((intent && intent.pageCount) || (SBS.getPageCount && SBS.getPageCount()) || 12)
       : 12;
-    var pageGuess = SBS.spreadCountOf ? SBS.spreadCountOf(pages) : Math.round(pages / 2);
+    var pageGuess = SBS.contentUnitCount ? SBS.contentUnitCount(pages) : Math.round(pages / 2) + 1;
     showGenerating({
       title: "いま、絵本を組み立てています。",
       message: title
@@ -759,6 +834,7 @@
       try {
         var bible = SBS.Bible.fromIntent(intent);
         var nextBook = SBS.Story.build(intent, bible);
+        if (SBS.Consent && SBS.Consent.stamp) SBS.Consent.stamp(nextBook);
         if (!SBS.PromptTemplates || !SBS.PromptCompiler) {
           throw new Error("prompt compiler missing");
         }
@@ -996,13 +1072,21 @@
       saveBtn.className = "btn btn-ghost";
       saveBtn.textContent = "タイトルを保存";
       meta.className = "library-meta";
-      meta.textContent = formatStamp(cat.stamp) + (cat.bookId ? " ・ " + cat.bookId : "");
+      meta.textContent = formatStamp(cat.stamp) + (cat.bookId ? " ・ " + cat.bookId : "") +
+        (row.inProgress ? " ・ 作成途中" : "");
       actions.className = "library-row-actions";
       openBtn.type = "button";
       openBtn.className = "btn btn-primary";
       openBtn.textContent = "この絵本を開く";
       openBtn.addEventListener("click", function () {
         openLibraryBook(cat.bookId);
+      });
+      var deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn btn-ghost";
+      deleteBtn.textContent = "この絵本を削除";
+      deleteBtn.addEventListener("click", function () {
+        deleteLibraryBook(cat.bookId, cat.title || input.value);
       });
       saveBtn.addEventListener("click", function () {
         var current = SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current();
@@ -1033,11 +1117,36 @@
       edit.appendChild(input);
       edit.appendChild(saveBtn);
       actions.appendChild(openBtn);
+      actions.appendChild(deleteBtn);
       item.appendChild(edit);
       item.appendChild(meta);
       item.appendChild(actions);
       list.appendChild(item);
     });
+  }
+
+  function deleteLibraryBook(bookId, title) {
+    var id = String(bookId || "");
+    if (!id || !SBS.LibraryIO || !SBS.LibraryIO.removeLocal) return;
+    var name = String(title || "この絵本").replace(/\s+/g, " ").trim() || "この絵本";
+    askConfirm(
+      "絵本を削除",
+      "「" + name + "」を本当に削除してよいですか？",
+      function (ok) {
+        if (!ok) return;
+        SBS.LibraryIO.removeLocal(id).then(function () {
+          var current = SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current();
+          if (current && current.bookId === id) {
+            if (SBS.Viewer.clear) SBS.Viewer.clear();
+          }
+          if (reviewBook && reviewBook.bookId === id) reviewBook = null;
+          refreshResume();
+          return SBS.LibraryIO.listLocal();
+        }).then(function (rows) {
+          if (rows) renderLibrary(rows);
+        });
+      }
+    );
   }
 
   function openLibrary() {
@@ -1048,17 +1157,18 @@
   SBS.init = function init() {
     if (isKiosk()) document.body.classList.add("kiosk");
 
+    if (SBS.Consent && SBS.Consent.bind) SBS.Consent.bind();
     $("btn-make").addEventListener("click", function () {
-      startWizard(null);
+      beginCreate("wizard");
     });
     if ($("btn-make-prompt")) {
       $("btn-make-prompt").addEventListener("click", function () {
-        showScreen("wizard");
-        if (SBS.Wizard.startPrompt) SBS.Wizard.startPrompt();
-        else startWizard(null);
+        beginCreate("prompt");
       });
     }
-    $("btn-omakase").addEventListener("click", startOmakase);
+    $("btn-omakase").addEventListener("click", function () {
+      beginCreate("omakase");
+    });
     $("btn-library").addEventListener("click", openLibrary);
     $("btn-library-home").addEventListener("click", function () {
       showScreen("home");
@@ -1172,7 +1282,11 @@
         if (keyEl) SBS.Gemini.setKey(keyEl.value);
         SBS.Gemini.setMode(modeEl ? modeEl.value : "auto");
         SBS.Gemini.setImageTier(tierEl ? tierEl.value : "flash");
-        SBS.Gemini.setTextModelId(textEl ? textEl.value : "3.5-flash");
+        SBS.Gemini.setTextModelId(textEl ? textEl.value : "3.8-flash");
+      }
+      if (SBS.Consent && SBS.Consent.setOn) {
+        var gateEl = $("consent-gate");
+        SBS.Consent.setOn(gateEl ? gateEl.checked : true);
       }
       refreshGeminiStatus();
     }
@@ -1182,6 +1296,23 @@
       openDialog("settings-dialog");
     });
     $("btn-soon-close").addEventListener("click", closeSoon);
+    if ($("btn-confirm-ok")) {
+      $("btn-confirm-ok").addEventListener("click", function () {
+        finishConfirm(true);
+      });
+    }
+    if ($("btn-confirm-ng")) {
+      $("btn-confirm-ng").addEventListener("click", function () {
+        finishConfirm(false);
+      });
+    }
+    if ($("confirm-dialog")) {
+      $("confirm-dialog").addEventListener("cancel", function () {
+        var done = confirmDone;
+        confirmDone = null;
+        if (done) done(false);
+      });
+    }
     $("btn-settings-close").addEventListener("click", function () {
       persistSettings();
       closeDialog("settings-dialog");
@@ -1245,6 +1376,9 @@
       showScreen("home");
       refreshResume();
     });
+    if ($("btn-book-library")) {
+      $("btn-book-library").addEventListener("click", openLibrary);
+    }
     if ($("btn-book-steps")) {
       $("btn-book-steps").addEventListener("click", function () {
         var current = (SBS.Viewer && SBS.Viewer.current && SBS.Viewer.current()) || reviewBook;
@@ -1315,28 +1449,37 @@
       var el = document.querySelector("input[name=\"print-kind\"]:checked");
       return el && el.value === "booklet" ? "booklet" : "spread";
     }
+    function printPageCountOf(book) {
+      return SBS.bookPageCount ? SBS.bookPageCount(book) : ((book && book.spreads && book.spreads.length * 2) || 12);
+    }
     function applyPrintKind() {
       var kind = printKind();
       var book = SBS.Viewer.current();
       var hint = $("print-hint");
+      var pageCount = printPageCountOf(book);
+      var spreadCount = Math.round(pageCount / 2);
+      var modeLabel = "見開き" + pageCount + "ページ";
       document.body.classList.toggle("print-kind-booklet", kind === "booklet");
       document.body.classList.toggle("print-kind-spread", kind !== "booklet");
       if (book) {
         SBS.Export.renderPrint($("print-pages"), book, kind);
-        if (SBS.PageFit) {
-          SBS.PageFit.afterLayout(function () {
-            SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
-          });
-        }
+      }
+      var spreadLabel = $("print-spread-label");
+      var bookletLabel = $("print-booklet-label");
+      if (spreadLabel) {
+        spreadLabel.textContent = "見開き（A4横・左綴じ・" + modeLabel + "）";
+      }
+      if (bookletLabel) {
+        bookletLabel.textContent = "製本用（A5×" + pageCount + "ページ・左綴じ・プリンタの製本／小冊子）";
       }
       if (!hint) return;
-      var pageCount = (book && (book.pageCount || ((book.spreads || []).length * 2))) || (SBS.getPageCount ? SBS.getPageCount() : 12);
-      var bookletLabel = $("print-booklet-label");
-      if (bookletLabel) bookletLabel.textContent = "製本用（A5×" + pageCount + "ページ・プリンタの製本／小冊子）";
       if (kind === "booklet") {
-        hint.textContent = "本文" + pageCount + "ページ（A5縦）です。プリンタの「製本」または「小冊子」で用紙A4・両面にすると、折って一冊になります。PDFは「PDFを保存」を使うと用紙サイズがA5縦で固定されます。奥付は印刷に入りません。";
+        var extra = (pageCount % 4 === 0)
+          ? ""
+          : " 製本／小冊子は4の倍数のとき面付けしやすいので、プリンタが末尾に空白を足すことがあります。";
+        hint.textContent = "左綴じです。1ページ目は表紙（插絵＋フッターの題名）、2ページ目以降は偶数ページが插絵・奇数ページが文章、最後は裏表紙（上半分が插絵、下半分が注意事項）です。A5縦×" + pageCount + "ページ（「" + modeLabel + "」）。プリンタの「製本」または「小冊子」で用紙A4・両面にしてください。PDFは「PDFを保存」を使ってください。" + extra;
       } else {
-        hint.textContent = "見開き1つがA4横1枚です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。奥付は印刷に入りません。";
+        hint.textContent = "左綴じです。最初の1枚は左が裏表紙・右が表紙（題名はフッター）。本文は左が偶数の插絵、右が奇数の文章です。この本は「" + modeLabel + "」なので " + spreadCount + " 枚です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。";
       }
     }
     document.querySelectorAll("input[name=\"print-kind\"]").forEach(function (el) {
@@ -1345,20 +1488,32 @@
     $("btn-print-back").addEventListener("click", function () {
       showScreen("book");
     });
+    if ($("btn-print-home")) {
+      $("btn-print-home").addEventListener("click", function () {
+        showScreen("home");
+        refreshResume();
+      });
+    }
+    if ($("btn-print-library")) {
+      $("btn-print-library").addEventListener("click", openLibrary);
+    }
     $("btn-print-run").addEventListener("click", function () {
       applyPrintKind();
-      if (SBS.PageFit) {
-        SBS.PageFit.afterLayout(function () {
-          SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
-          window.print();
-        });
-        return;
+      if (SBS.Export && SBS.Export.fitPrintText) {
+        SBS.Export.fitPrintText($("print-pages"));
+        if (SBS.PageFit) {
+          SBS.PageFit.afterLayout(function () {
+            window.print();
+          });
+          return;
+        }
       }
       window.print();
     });
     window.addEventListener("beforeprint", function () {
-      if (!document.body.classList.contains("print-mode") || !SBS.PageFit) return;
-      SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
+      if (!document.body.classList.contains("print-mode")) return;
+      if (SBS.Export && SBS.Export.fitPrintText) SBS.Export.fitPrintText($("print-pages"));
+      else if (SBS.PageFit) SBS.PageFit.fitAll($("print-pages"), ".print-page.right, .print-leaf.text");
     });
     $("btn-print-pdf").addEventListener("click", function () {
       var current = SBS.Viewer.current();

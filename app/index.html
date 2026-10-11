@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>世界に一つだけの絵本 | StoryBook Studio</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <link rel="stylesheet" href="css/studio.css?v=20260928-fit">
+  <link rel="stylesheet" href="css/studio.css?v=20261011-consent">
   <link rel="stylesheet" href="css/fonts.css">
-  <link rel="stylesheet" href="css/print.css?v=20260928-fit">
+  <link rel="stylesheet" href="css/print.css?v=20261011-legalai">
 </head>
 <body>
   <div class="app-wrap">
@@ -54,6 +54,118 @@
           </dl>
           <p class="note" id="home-setting-note"></p>
         </aside>
+      </section>
+
+      <section class="stage" id="screen-consent" hidden aria-label="絵本をつくる前に">
+        <h2 class="step-title">絵本をつくる前に</h2>
+        <p class="consent-intro">本アプリ「StoryBook Studio～世界に一つだけの絵本～」で絵本をつくる前に、次の事項を確認し、同意してください。同意しない場合は、絵本作成を開始できません。</p>
+        <ol class="consent-list">
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="1">
+              <span>
+                <strong>1. 立場の確認</strong>
+                本アプリで設定や指示を入力し、絵本を生成・出力・保存・利用する者を「作成者」とします。本アプリを企画・開発・運営し、利用を提供する者を「開発者・提供者」とします。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="2">
+              <span>
+                <strong>2. 目的</strong>
+                本アプリと展示物は非営利です。AIの長所と短所を体験するためのものであることを理解します。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="3">
+              <span>
+                <strong>3. 成果物の性質</strong>
+                できた絵本は「世界に一つだけの作品」として扱いますが、完全な独自性や特定の目的への適合は保証されないことを理解します。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="4">
+              <span>
+                <strong>4. 権利侵害の責任</strong>
+                本作品に含まれるキャラクターのデザインや名前、舞台設定、シナリオなどが、既存作品または第三者の知的財産権と類似し、または一致した場合、それに伴う権利侵害や紛争の責任は作成者にあります。開発者・提供者は内容の事前確認を行わず、一切の責任を負いません。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="5">
+              <span>
+                <strong>5. 複製・転売などの禁止</strong>
+                本作品の無断での複製、複写、再配布、転売、および商業利用はしません。これらに違反した行為や、作成者による共有・二次利用によってトラブルや損害が生じた場合、その責任は作成者にあります。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="6">
+              <span>
+                <strong>6. 損害の免責</strong>
+                閲覧・配布・転売などを含む利用で生じたトラブルや損害について、開発者・提供者は直接・間接を問わず責任を負いません。当事者間で解決します。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="7">
+              <span>
+                <strong>7. 個人情報の取り扱い</strong>
+                実在の子どものフルネーム、住所、学校名など、個人を特定できる情報は入力しません。これらを入力した場合の責任は、作成者にあります。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="8">
+              <span>
+                <strong>8. 外部サービスへの送信</strong>
+                文章と插絵の生成のため、入力内容や参照画像が Google の Gemini API に送られることがあることを理解します。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="9">
+              <span>
+                <strong>9. 利用する生成AI</strong>
+                文章作成には gemini-3.1-pro-preview／3.8-flash／3.5-flash／2.5-flash、画像生成には gemini-3.1-flash-image／3.1-flash-lite-image／2.5-flash-image のいずれかを利用することを理解します。
+              </span>
+            </label>
+          </li>
+          <li>
+            <label class="check-label consent-item">
+              <input type="checkbox" class="consent-item-check" data-consent="10">
+              <span>
+                <strong>10. その他の規約</strong>
+                この画面と裏表紙の Credit &amp; Disclaimer に書いていない免責・利用制限は、Google の Gemini API 追加利用規約に準ずることに同意します。
+              </span>
+            </label>
+            <p class="consent-cite">引用URL：<a href="https://ai.google.dev/gemini-api/terms?hl=ja" target="_blank" rel="noopener noreferrer">https://ai.google.dev/gemini-api/terms?hl=ja</a></p>
+          </li>
+        </ol>
+        <label class="check-label consent-master">
+          <input type="checkbox" id="consent-all">
+          <span>上記すべてに同意する</span>
+        </label>
+        <div class="consent-identity">
+          <label class="block-label consent-name-label">作成者の氏名
+            <input id="consent-name" maxlength="80" autocomplete="name" placeholder="作成者の氏名">
+          </label>
+          <p class="consent-when" id="consent-when" aria-live="polite"></p>
+        </div>
+        <div class="actions wizard-nav">
+          <button type="button" class="btn btn-primary" id="btn-consent-agree" disabled>同意して絵本をつくる</button>
+          <button type="button" class="btn btn-ghost" id="btn-consent-decline">同意しない（ホームへ）</button>
+        </div>
       </section>
 
       <section class="stage" id="screen-library" hidden aria-label="書庫">
@@ -222,6 +334,7 @@
         <div class="actions wizard-nav">
           <button type="button" class="btn btn-ghost" id="btn-book-home">ホームへ</button>
           <button type="button" class="btn btn-ghost" id="btn-book-steps">工程に戻る</button>
+          <button type="button" class="btn btn-ghost" id="btn-book-library">書庫をひらく</button>
           <button type="button" class="btn btn-ghost" id="btn-book-prev">まえ</button>
           <button type="button" class="btn btn-primary" id="btn-book-next">つぎ</button>
           <button type="button" class="btn btn-ghost" id="btn-redraw">この絵を描き直す</button>
@@ -261,24 +374,37 @@
             <legend>印刷の形</legend>
             <label>
               <input type="radio" name="print-kind" value="spread" checked>
-              見開き（A4横・1枚に左の絵と右の文）
+              <span id="print-spread-label">見開き（A4横・左綴じ・見開き12ページ）</span>
             </label>
             <label>
               <input type="radio" name="print-kind" value="booklet">
-              <span id="print-booklet-label">製本用（A5×12ページ・プリンタの製本／小冊子）</span>
+              <span id="print-booklet-label">製本用（A5×12ページ・左綴じ・プリンタの製本／小冊子）</span>
             </label>
           </fieldset>
           <div class="actions">
             <button type="button" class="btn btn-primary" id="btn-print-run">印刷する</button>
             <button type="button" class="btn btn-primary" id="btn-print-pdf">PDFを保存</button>
             <button type="button" class="btn btn-ghost" id="btn-print-back">絵本へ</button>
+            <button type="button" class="btn btn-ghost" id="btn-print-home">ホームへ</button>
+            <button type="button" class="btn btn-ghost" id="btn-print-library">書庫をひらく</button>
           </div>
-          <p class="print-hint" id="print-hint">見開き1つがA4横1枚です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。奥付（つくった日とbookId）は印刷に入りません。</p>
+          <p class="print-hint" id="print-hint">左綴じです。最初の1枚は左が裏表紙・右が表紙（題名はフッター）。本文は左が偶数の插絵、右が奇数の文章です。ブラウザの印刷だと縦になってしまうことがあるので、PDFは「PDFを保存」を使ってください。</p>
         </div>
         <div id="print-pages"></div>
       </section>
     </main>
   </div>
+
+  <dialog class="dialog" id="confirm-dialog" aria-labelledby="confirm-title">
+    <div class="dialog-body">
+      <h2 id="confirm-title">絵本を削除</h2>
+      <p id="confirm-message">本当に削除してよいですか？</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btn-confirm-ok">OK</button>
+        <button type="button" class="btn btn-ghost" id="btn-confirm-ng">NG</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog class="dialog" id="soon-dialog" aria-labelledby="soon-title">
     <div class="dialog-body">
@@ -321,8 +447,12 @@
           gemini-3.1-pro-preview（有料・最高品質）
         </label>
         <label class="check-label">
-          <input type="radio" name="text-model" value="3.5-flash" checked>
-          gemini-3.5-flash（無料枠・推奨）
+          <input type="radio" name="text-model" value="3.8-flash" checked>
+          gemini-3.8-flash（無料枠・推奨）
+        </label>
+        <label class="check-label">
+          <input type="radio" name="text-model" value="3.5-flash">
+          gemini-3.5-flash（無料枠）
         </label>
         <label class="check-label">
           <input type="radio" name="text-model" value="2.5-flash">
@@ -346,14 +476,29 @@
         </label>
       </fieldset>
       <fieldset class="settings-modes">
+        <legend>絵本作成の同意</legend>
+        <label class="switch-label">
+          <span class="switch">
+            <input type="checkbox" id="consent-gate" checked>
+            <span class="switch-slider" aria-hidden="true"></span>
+          </span>
+          <span>作成開始時に免責・利用条件の同意を表示する</span>
+        </label>
+        <p class="note">オンのときだけ、ホームから絵本をつくる前に同意画面を出します。オフのときはスキップします。書庫とつづきからは出しません。</p>
+      </fieldset>
+      <fieldset class="settings-modes">
         <legend>絵本のページ数</legend>
         <label class="check-label">
           <input type="radio" name="page-count" value="12" checked>
           見開き12ページ
         </label>
         <label class="check-label">
-          <input type="radio" name="page-count" value="18">
-          見開き18ページ
+          <input type="radio" name="page-count" value="16">
+          見開き16ページ
+        </label>
+        <label class="check-label">
+          <input type="radio" name="page-count" value="20">
+          見開き20ページ
         </label>
         <label class="check-label">
           <input type="radio" name="page-count" value="24">
@@ -367,23 +512,24 @@
     </div>
   </dialog>
 
-  <script src="js/presets.js?v=20260928-script"></script>
+  <script src="js/presets.js?v=20261008-backhalf"></script>
   <script src="js/intent-markdown.js?v=20260928-script"></script>
-  <script src="js/originality.js?v=20260927-openfix"></script>
+  <script src="js/originality.js?v=20261008-backhalf"></script>
   <script src="js/wizard.js?v=20260928-script"></script>
   <script src="js/bible.js?v=20260928-world"></script>
-  <script src="js/story.js?v=20260928-ruby3"></script>
-  <script src="js/demo-art.js?v=20260928-progress"></script>
-  <script src="js/prompt-templates.js?v=20260928-world"></script>
+  <script src="js/story.js?v=20261008-backhalf"></script>
+  <script src="js/demo-art.js?v=20261008-backhalf"></script>
+  <script src="js/prompt-templates.js?v=20261008-backhalf"></script>
   <script src="js/zip-store.js?v=20260925-omakase2"></script>
-  <script src="js/prompt-compiler.js?v=20260928-world"></script>
-  <script src="js/library-io.js?v=20260925-charsheets"></script>
+  <script src="js/prompt-compiler.js?v=20261008-backhalf"></script>
+  <script src="js/library-io.js?v=20261011-delete"></script>
   <script src="js/pdf-write.js?v=20260925-omakase2"></script>
-  <script src="js/export.js?v=20260928-fit"></script>
-  <script src="js/gemini.js?v=20260928-world"></script>
-  <script src="js/page-fit.js?v=20260928-fit"></script>
-  <script src="js/viewer.js?v=20260928-fit"></script>
-  <script src="js/app.js?v=20260928-fit"></script>
+  <script src="js/export.js?v=20261011-legalai"></script>
+  <script src="js/gemini.js?v=20261008-backhalf"></script>
+  <script src="js/page-fit.js?v=20261008-backhalf"></script>
+  <script src="js/viewer.js?v=20261011-delete"></script>
+  <script src="js/consent.js?v=20261011-consent"></script>
+  <script src="js/app.js?v=20261011-delete"></script>
   <script>
     SBS.init();
   </script>

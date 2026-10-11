@@ -20,9 +20,9 @@
     var tate = !!(el.classList.contains("tate") || opts.tate);
     var min = opts.min || 11;
     var max = opts.max || 20;
-    var lead = tate ? 1.85 : 1.95;
-    var gap = 0.5;
-    var pad = 0.55;
+    var lead = opts.lead || (tate ? 1.85 : 1.95);
+    var gap = opts.gap != null ? opts.gap : 0.5;
+    var pad = opts.pad != null ? opts.pad : 0.55;
     var lo = min;
     var hi = max;
     var best = min;

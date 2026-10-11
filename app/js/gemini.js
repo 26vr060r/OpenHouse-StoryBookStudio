@@ -5,10 +5,12 @@
   var IMAGE_TIER = "sbs-image-tier";
   var TEXT_MODEL = "sbs-text-model";
   var TEXT_MODEL_CHOICES = {
-    "3.1-pro": ["gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
-    "3.5-flash": ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
-    "2.5-flash": ["gemini-2.5-flash", "gemini-2.0-flash"]
+    "3.1-pro": ["gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"],
+    "3.8-flash": ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"],
+    "3.5-flash": ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-flash"],
+    "2.5-flash": ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.5-flash"]
   };
+  var TEXT_FALLBACKS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
   var TEXT_MODEL_PAID = { "3.1-pro": true };
   var IMAGE_MODELS_FLASH = [
     "gemini-3.1-flash-image",
@@ -95,16 +97,16 @@
 
   function getTextModelId() {
     try {
-      var id = window.localStorage.getItem(TEXT_MODEL) || "3.5-flash";
+      var id = window.localStorage.getItem(TEXT_MODEL) || "3.8-flash";
       if (TEXT_MODEL_CHOICES[id]) return id;
-      return "3.5-flash";
+      return "3.8-flash";
     } catch (err) {
-      return "3.5-flash";
+      return "3.8-flash";
     }
   }
 
   function setTextModelId(value) {
-    var id = TEXT_MODEL_CHOICES[value] ? value : "3.5-flash";
+    var id = TEXT_MODEL_CHOICES[value] ? value : "3.8-flash";
     if (getTextModelId() !== id) cachedTextModel = null;
     try {
       window.localStorage.setItem(TEXT_MODEL, id);
@@ -114,7 +116,7 @@
   }
 
   function textModels() {
-    return TEXT_MODEL_CHOICES[getTextModelId()] || TEXT_MODEL_CHOICES["3.5-flash"];
+    return TEXT_MODEL_CHOICES[getTextModelId()] || TEXT_MODEL_CHOICES["3.8-flash"];
   }
 
   function textModelName() {
@@ -173,7 +175,10 @@
     { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
   ];
 
-  function pageImageConfig() {
+  function pageImageConfig(spread) {
+    if (spread && (spread.role === "back" || spread.scene === "back")) {
+      return { aspectRatio: "3:2", imageSize: imageSize() };
+    }
     return { aspectRatio: "3:4", imageSize: imageSize() };
   }
 
@@ -410,10 +415,7 @@
   function generateText(prompt, extra) {
     if (!prompt) return Promise.resolve("");
     extra = extra || {};
-    var models = uniqueModels([cachedTextModel].concat(textModels()).concat([
-      "gemini-2.5-flash",
-      "gemini-2.0-flash"
-    ]));
+    var models = uniqueModels([cachedTextModel].concat(textModels()).concat(TEXT_FALLBACKS));
     function postOne(model) {
       var bodies = textBodies(model, prompt, extra);
       function nextBody(b) {
@@ -421,6 +423,7 @@
         return post(model, bodies[b]).then(function (res) {
           noteTextCall(model, res);
           if (res.ok && extractText(res.json)) return res;
+          if (res.status === 404 || res.status === 410) return res;
           if ((res.status === 429 || res.status === 503) && b === 0) {
             return wait(1600).then(function () { return nextBody(b + 1); });
           }
@@ -726,12 +729,37 @@
     });
   }
 
+  var EMPTY_PAGE_TEXT = "（このページの文章を、ここに書いてください。）";
+
   function stripDecor(line) {
     return String(line || "")
       .replace(/^\s*[-*#>\d.]+\s*/, "")
       .replace(/[*_`#]/g, "")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  function isPlaceholderText(text) {
+    return /このページの文章を[、, ]*ここに書いてください/.test(String(text || ""));
+  }
+
+  function extractJapaneseBody(raw) {
+    var lines = String(raw || "")
+      .replace(/===[\t ]*p?[\t ]*\d+[\t ]*===/gi, "\n")
+      .split(/\n+/);
+    var kept = [];
+    lines.forEach(function (line) {
+      var s = stripDecor(line);
+      var jp;
+      var latin;
+      if (!s) return;
+      if (/^\(.*\)$/.test(s) || /^（.*）$/.test(s)) return;
+      if (/HARD PAGE RULE|illustration-only|odd pages excluding|Do not (write|put)|Output format/i.test(s)) return;
+      jp = (s.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+      latin = (s.match(/[A-Za-z]/g) || []).length;
+      if (jp >= 2 && jp >= latin) kept.push(s);
+    });
+    return kept.join("\n").trim();
   }
 
   function parseLine(line) {
@@ -876,9 +904,11 @@
   function applyAnyPage(spread, raw, book) {
     var lines;
     var body;
-    if (applyText(spread, raw, book) || applyKeepable(spread, raw, book)) return true;
-    lines = linesFromRaw(sanitizePageRaw(raw, book, spread && spread.role)).filter(function (line) {
-      return line && !hasCoverCredit(line);
+    var cleaned = extractJapaneseBody(raw) || String(raw || "");
+    if (isPlaceholderText(cleaned)) return false;
+    if (applyText(spread, cleaned, book) || applyKeepable(spread, cleaned, book)) return true;
+    lines = linesFromRaw(sanitizePageRaw(cleaned, book, spread && spread.role)).filter(function (line) {
+      return line && !hasCoverCredit(line) && !isPlaceholderText(line);
     });
     body = lines.join("\n");
     if (!isMostlyJapanese(body)) return false;
@@ -903,6 +933,7 @@
   function pageHasBody(spread) {
     var i;
     var tokens;
+    if (spread && spread.role === "back") return true;
     if (!spread || !spread.paragraphs || !spread.paragraphs.length) return false;
     for (i = 0; i < spread.paragraphs.length; i += 1) {
       tokens = spread.paragraphs[i] || [];
@@ -913,12 +944,43 @@
     return false;
   }
 
+  function pagePlain(spread, book) {
+    var names = {};
+    var bible = (book && book.bible) || { characters: [] };
+    (bible.characters || []).forEach(function (ch) {
+      if (ch.role === "hero") names.hero = ch.displayName;
+      else if (!names.friend) names.friend = ch.displayName;
+    });
+    return (SBS.Story && SBS.Story.plainText)
+      ? SBS.Story.plainText(spread && spread.paragraphs, names, { ruby: false })
+      : "";
+  }
+
+  function pageNeedsWriting(spread, book) {
+    if (!spread) return false;
+    if (spread.role === "cover" || spread.role === "back") return false;
+    if (SBS.needsStoryText && !SBS.needsStoryText(spread)) return false;
+    if (!pageHasBody(spread)) return true;
+    return isPlaceholderText(pagePlain(spread, book));
+  }
+
+  function storyWriteStats(book) {
+    var n = 0;
+    var t = 0;
+    ((book && book.spreads) || []).forEach(function (s) {
+      if (!s || (SBS.needsStoryText ? !SBS.needsStoryText(s) : (s.role === "cover" || s.role === "back"))) return;
+      t += 1;
+      if (pageHasBody(s) && !isPlaceholderText(pagePlain(s, book))) n += 1;
+    });
+    return { written: n, total: t };
+  }
+
   function fillEmptyPages(book) {
     ensureCoverTitle(book);
     ((book && book.spreads) || []).forEach(function (spread) {
-      if (!spread || spread.role === "cover") return;
-      if (pageHasBody(spread)) return;
-      spread.paragraphs = [[{ t: "（このページの文章を、ここに書いてください。）" }]];
+      if (!spread || spread.role === "cover" || spread.role === "back") return;
+      if (pageHasBody(spread) && !isPlaceholderText(pagePlain(spread, book))) return;
+      spread.paragraphs = [[{ t: EMPTY_PAGE_TEXT }]];
     });
   }
 
@@ -931,6 +993,7 @@
   function clearStoryDrafts(book) {
     ((book && book.spreads) || []).forEach(function (spread) {
       if (!spread) return;
+      if (spread.role === "cover" || spread.role === "back") return;
       spread.paragraphs = [];
       spread.geminiTextDone = false;
     });
@@ -952,13 +1015,18 @@
   }
 
   function inventSpine(book) {
+    var pageCount = SBS.bookPageCount ? SBS.bookPageCount(book) : (book && book.pageCount) || 12;
+    var storyN = SBS.interiorSpreadCount ? SBS.interiorSpreadCount(pageCount) : 5;
+    var odds = SBS.storyPageNumbers ? SBS.storyPageNumbers(pageCount) : [3, 5, 7, 9, 11];
     var prompt = [
       "ROLE: Original picture-book plot inventor.",
+      (SBS.pageLockJa && SBS.pageLockJa(book)) || (SBS.pageLock && SBS.pageLock(book)) || "",
       "Invent a unique plot for THIS book from the wizard facts only.",
       "Do not use studio templates, past books, sample stories, or famous picture-book plots.",
       "Do not invent a daily-routine plot (waking, packing, walking, greetings) unless the memo itself names that event.",
       "Start from a concrete situation that can exist only in this memo.",
-      "Output 6 to 10 short Japanese sentences that tell this book's story from start to end.",
+      "Output exactly " + storyN + " short Japanese sentences, one beat per story page: " + odds.join(", ") + ".",
+      "The last sentence is the ending on page " + odds[odds.length - 1] + ". Do not put story on the cover or back cover.",
       "No headings. No title. No English. Names must match the wizard facts.",
       "",
       wizardFactsPrompt(book)
@@ -976,8 +1044,8 @@
 
   function stripSlotHint(body) {
     return String(body || "")
-      .replace(/^\([^)]{0,80}\)\s*/, "")
-      .replace(/^（[^）]{0,80}）\s*/, "")
+      .replace(/^\([^)]{0,400}\)\s*/, "")
+      .replace(/^（[^）]{0,400}）\s*/, "")
       .trim();
   }
 
@@ -987,7 +1055,7 @@
     var patterns = [
       /===[\t ]*p?[\t ]*0*(\d+)[\t ]*===[\t ]*\n?([\s\S]*?)(?====[\t ]*p?[\t ]*0*\d+[\t ]*===|$)/gi,
       /【\s*p?\s*0*(\d+)\s*】\s*([\s\S]*?)(?=【\s*p?\s*0*\d+\s*】|$)/gi,
-      /(?:^|\n)\s*(?:右ページ|見開き|ページ|p)\s*0*(\d+)\s*[:：]\s*([\s\S]*?)(?=(?:^|\n)\s*(?:右ページ|見開き|ページ|p)\s*0*\d+\s*[:：]|$)/gi
+      /(?:^|\n)\s*(?:右ページ|印刷ページ|本文ページ|見開き|ページ|p)\s*0*(\d+)\s*[:：]\s*([\s\S]*?)(?=(?:^|\n)\s*(?:右ページ|印刷ページ|本文ページ|見開き|ページ|p)\s*0*\d+\s*[:：]|$)/gi
     ];
     patterns.forEach(function (re) {
       var match;
@@ -995,25 +1063,123 @@
       while ((match = re.exec(text))) {
         var n = parseInt(match[1], 10);
         if (!n || found[n]) continue;
-        found[n] = stripSlotHint(match[2]);
+        found[n] = extractJapaneseBody(stripSlotHint(match[2])) || stripSlotHint(match[2]);
       }
     });
     return found;
   }
 
+  function storyPrintPage(book, spread, index) {
+    var odd = SBS.oddTextPageOf ? SBS.oddTextPageOf(book, spread) : 0;
+    if (odd) return odd;
+    return Math.max(1, ((index || 0) * 2) + 1);
+  }
+
+  function storyKeyMode(book, blocks) {
+    var interiors = (SBS.bookParts ? SBS.bookParts(book).interior : (book.spreads || []).slice(1, -1)) || [];
+    var odds = SBS.storyPageNumbers ? SBS.storyPageNumbers(book && book.pageCount) : [];
+    var oddHits = odds.filter(function (p) { return blocks[p]; }).length;
+    var nHits = interiors.filter(function (s) { return s && blocks[s.n]; }).length;
+    var seqHits = interiors.filter(function (_, i) { return blocks[i + 1]; }).length;
+    var need = Math.max(1, Math.ceil(interiors.length * 0.6));
+    if (oddHits >= need) return "odd";
+    if (nHits >= need) return "n";
+    if (seqHits >= need) return "seq";
+    return "odd";
+  }
+
+  function pickStoryBlock(blocks, book, spread, index, mode) {
+    var interiors;
+    var k;
+    var odd = storyPrintPage(book, spread, index);
+    mode = mode || storyKeyMode(book, blocks);
+    if (mode === "odd") return (blocks && (blocks[odd] || blocks[spread && spread.n] || blocks[index + 1])) || "";
+    if (mode === "n") return (blocks && (blocks[spread && spread.n] || blocks[odd] || blocks[index + 1])) || "";
+    interiors = (SBS.bookParts ? SBS.bookParts(book).interior : []) || [];
+    k = interiors.indexOf(spread);
+    if (k < 0) k = Math.max(0, (index || 0) - 1);
+    return (blocks && (blocks[k + 1] || blocks[odd] || blocks[spread && spread.n])) || "";
+  }
+
+  function splitStoryBlob(blob, count) {
+    var text = extractJapaneseBody(blob);
+    var paras;
+    var sentences;
+    var out = [];
+    var per;
+    var i;
+    if (!text || count < 1) return [];
+    paras = text.split(/\n{2,}/).map(function (p) { return p.trim(); }).filter(Boolean);
+    if (paras.length === count) return paras;
+    sentences = text.split(/(?<=[。！？\n])/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (sentences.length < count) return paras.length >= count ? paras.slice(0, count) : [];
+    per = Math.ceil(sentences.length / count);
+    for (i = 0; i < count; i += 1) {
+      out.push(sentences.slice(i * per, (i + 1) * per).join(""));
+    }
+    return out.filter(Boolean);
+  }
+
+  function applyParsedStory(book, raw) {
+    var spreads = (book && book.spreads) || [];
+    var blocks = parsePageBlocks(raw);
+    var mode = storyKeyMode(book, blocks);
+    var interiors = (SBS.bookParts ? SBS.bookParts(book).interior : spreads.filter(function (s) {
+      return s && s.role !== "cover" && s.role !== "back";
+    })) || [];
+    var missing;
+    var unused;
+    var used = {};
+    var parts;
+    spreads.forEach(function (spread, i) {
+      var body;
+      if (!spread || (SBS.needsStoryText && !SBS.needsStoryText(spread))) return;
+      body = pickStoryBlock(blocks, book, spread, i, mode);
+      if (body && applyAnyPage(spread, body, book)) {
+        used[storyPrintPage(book, spread, i)] = true;
+        used[spread.n] = true;
+        refreshImagePrompt(book, i);
+      }
+    });
+    missing = interiors.filter(function (s) { return pageNeedsWriting(s, book); });
+    if (!missing.length) return;
+    unused = Object.keys(blocks).map(function (k) { return parseInt(k, 10); }).sort(function (a, b) { return a - b; })
+      .filter(function (n) { return !used[n]; })
+      .map(function (n) { return blocks[n]; })
+      .filter(Boolean);
+    missing.forEach(function (spread) {
+      var body = unused.shift();
+      var i = spreads.indexOf(spread);
+      if (body && applyAnyPage(spread, body, book) && i >= 0) refreshImagePrompt(book, i);
+    });
+    missing = interiors.filter(function (s) { return pageNeedsWriting(s, book); });
+    if (!missing.length) return;
+    parts = splitStoryBlob(raw, missing.length);
+    missing.forEach(function (spread, k) {
+      var i = spreads.indexOf(spread);
+      if (parts[k] && applyAnyPage(spread, parts[k], book) && i >= 0) refreshImagePrompt(book, i);
+    });
+  }
+
   function writePageText(book, index) {
     var spread = book.spreads[index];
     if (!spread) return Promise.resolve();
+    if (spread.role === "cover") {
+      ensureCoverTitle(book);
+      return Promise.resolve();
+    }
+    if (spread.role === "back" || (SBS.needsStoryText && !SBS.needsStoryText(spread))) {
+      return Promise.resolve();
+    }
     if (SBS.PromptCompiler && SBS.PromptCompiler.refreshPageText) {
       SBS.PromptCompiler.refreshPageText(book, index);
     }
     var page = book.prompts && book.prompts.pages && book.prompts.pages[index];
     function after(raw) {
-      if (applyAnyPage(spread, raw, book)) {
+      if (applyAnyPage(spread, extractJapaneseBody(raw) || raw, book)) {
         refreshImagePrompt(book, index);
         return;
       }
-      if (spread.role === "cover") ensureCoverTitle(book);
       refreshImagePrompt(book, index);
     }
     function pickRaw(first, second) {
@@ -1036,14 +1202,13 @@
         return;
       }
       var bounds = planBounds(spread);
-      var hint = spread.role === "cover"
-        ? "\n\n表紙の右ページだけ。タイトルとなまえを1〜2行。日本語のみ。さく・え、作・絵、さっか、オリジナルさっかは書かない。60字以内。"
-        : "\n\n指定メモの現場から、この本だけの出来事を日本語で書いてください。" +
+      var hint = "\n\n指定メモの現場から、この本だけの出来事を日本語で書いてください。" +
           "朝の起床・身支度・道のあいさつ・てくてく歩きで始めない（メモがそれを書いていないなら）。" +
-          "物体・音・セリフのどれか具体的なものから書き出す。英語禁止。このページは" +
+          "物体・音・セリフのどれか具体的なものから書き出す。英語禁止。このページは印刷の奇数ページ" +
+          storyPrintPage(book, spread, index) + "。" +
           (bounds.lo && bounds.hi ? bounds.lo + "〜" + bounds.hi : "計画の範囲") +
           "字。最低" + (bounds.lo || 80) + "字。最大" + pageTextMax() +
-          "。文末を。！？」で閉じる。景色だけで埋めない。雛形や他の本の話は使わない。";
+          "。文末を。！？」で閉じる。景色だけで埋めない。雛形や他の本の話は使わない。表紙と裏表紙には書かない。";
       return generateText(pagePrompt + hint).then(function (raw2) {
         after(pickRaw(raw, raw2));
       });
@@ -1052,24 +1217,31 @@
 
   function writeWholeBook(book) {
     var spreads = book.spreads || [];
+    var pageCount = SBS.bookPageCount ? SBS.bookPageCount(book) : (book && book.pageCount) || 12;
+    var odds = SBS.storyPageNumbers ? SBS.storyPageNumbers(pageCount) : [3, 5, 7, 9, 11];
     var slots = spreads.map(function (spread, i) {
-      var bounds = planBounds(spread);
-      var place = (SBS.PromptCompiler && SBS.PromptCompiler.pagePlace)
-        ? SBS.PromptCompiler.pagePlace(spread, i, spreads.length)
-        : (spread.role === "cover" ? "表紙" : "本文");
-      return "===p" + spread.n + "===\n(" + place +
-        (bounds.lo && bounds.hi ? "、" + bounds.lo + "〜" + bounds.hi + "字" : "") + ")";
-    });
+      var bounds;
+      var odd;
+      if (!spread || (SBS.needsStoryText ? !SBS.needsStoryText(spread) : (spread.role === "cover" || spread.role === "back"))) {
+        return "";
+      }
+      bounds = planBounds(spread);
+      odd = storyPrintPage(book, spread, i);
+      return "===p" + odd + "===\n(本文ページ" + odd +
+        (bounds.lo && bounds.hi ? "、" + bounds.lo + "〜" + bounds.hi + "字" : "") + "。日本語本文だけ)";
+    }).filter(Boolean);
     var prompt = [
       (SBS.Originality && SBS.Originality.creatorLock) || "",
+      (SBS.pageLockJa && SBS.pageLockJa(book)) || (SBS.pageLock && SBS.pageLock(book)) || "",
       "",
-      "Write EVERY right-page Japanese body for this one picture book.",
+      "Write Japanese body ONLY for the odd story pages excluding cover: " + odds.join(", ") + ".",
+      "Do not write a block for page 1 (cover) or the back cover (page " + pageCount + "). Even pages are illustrations only.",
+      "The last odd story page (" + odds[odds.length - 1] + ") is the ending.",
       "The only story source is the wizard facts (steps 1 to 4).",
       "Do not use studio page plans, draft templates, past books, or sample stories.",
       "Japanese body text only. No English. No markdown commentary.",
       "Follow 文字の規則: 2–6 ひらがな only (no 漢字, no 漢字（ひらがな） even if ふりがな is on), 7–9 grade 1–2 漢字, 10–12 elementary 漢字, 13–15 junior-high 漢字, adults everyday 漢字.",
       "HARD when ふりがな is あり and the audience is 7 or older: every 漢字 word MUST be 漢字（ひらがな） per 熟語, e.g. 学校（がっこう）, 友達（ともだち）, 行（い）った. Never 学（がく）校（こう）. Never leave bare 漢字. Length counts without （ふりがな）.",
-      "Cover (p1): title and names only. Do not write さく・え, 作・絵, さっか, or オリジナルさっか.",
       "Output format (exact markers, then the page body):",
       slots.join("\n"),
       "",
@@ -1082,27 +1254,29 @@
       book.storySpine || "（指定メモだけから発明する）"
     ].join("\n");
     return generateText(prompt, { maxOutputTokens: 16384 }).then(function (raw) {
-      var blocks = parsePageBlocks(raw);
       book.lastTextRaw = raw || "";
       book.lastTextError = textFailNote();
-      spreads.forEach(function (spread, i) {
-        var body = blocks[spread.n] || blocks[i + 1] || "";
-        if (body && applyAnyPage(spread, body, book)) {
-          refreshImagePrompt(book, i);
-        }
-      });
+      ensureCoverTitle(book);
+      applyParsedStory(book, raw);
       return book;
     });
   }
 
   function writePageTextEmergency(book, index) {
     var spread = book.spreads[index];
+    if (!spread) return Promise.resolve();
+    if (spread.role === "cover") {
+      ensureCoverTitle(book);
+      return Promise.resolve();
+    }
+    if (spread.role === "back" || (SBS.needsStoryText && !SBS.needsStoryText(spread))) {
+      return Promise.resolve();
+    }
     var bounds = planBounds(spread);
     var prompt = [
       "日本語の絵本の右ページ本文だけを書いてください。マークダウンも英語も不要です。",
-      spread && spread.role === "cover"
-        ? "表紙。題名と登場人物のなまえだけ。さく・えやオリジナルさっかは書かない。"
-        : "このページは" + (bounds.lo || 80) + "字以上。文末を。！？」で閉じる。",
+      "このページは印刷の奇数ページ" + storyPrintPage(book, spread, index) + "。" +
+        (bounds.lo || 80) + "字以上。文末を。！？」で閉じる。表紙と裏表紙には書かない。",
       book && book.furigana && book.intent && book.intent.audience !== "age-2-3" && book.intent.audience !== "age-4-6"
         ? "ふりがなあり。すべての漢字を 漢字（ひらがな） で書く。学校（がっこう）。"
         : "",
@@ -1112,7 +1286,6 @@
     ].join("\n");
     return generateText(prompt).then(function (raw) {
       if (applyAnyPage(spread, raw, book)) refreshImagePrompt(book, index);
-      else if (spread && spread.role === "cover") ensureCoverTitle(book);
     });
   }
 
@@ -1120,7 +1293,11 @@
     var spreads = book.spreads || [];
     function next(i, writer) {
       if (i >= spreads.length) return Promise.resolve();
-      if (pageHasBody(spreads[i])) return next(i + 1, writer);
+      if (spreads[i] && spreads[i].role === "cover") {
+        ensureCoverTitle(book);
+        return next(i + 1, writer);
+      }
+      if (!pageNeedsWriting(spreads[i], book)) return next(i + 1, writer);
       return writer(book, i).then(function () {
         if (onPage) onPage();
         return next(i + 1, writer);
@@ -1136,14 +1313,20 @@
     if (indices.length === 1) return writePageText(book, indices[0]);
     var spreads = book.spreads || [];
     var total = spreads.length;
+    indices = indices.filter(function (i) {
+      return spreads[i] && (!SBS.needsStoryText || SBS.needsStoryText(spreads[i]));
+    });
+    if (!indices.length) return Promise.resolve();
+    if (indices.length === 1) return writePageText(book, indices[0]);
     var slots = indices.map(function (i) {
       var spread = spreads[i];
       var bounds = planBounds(spread);
+      var odd = storyPrintPage(book, spread, i);
       return {
         i: i,
-        n: spread.n,
+        n: odd,
         beat: (SBS.PromptCompiler && SBS.PromptCompiler.pagePlace)
-          ? SBS.PromptCompiler.pagePlace(spread, i, total)
+          ? SBS.PromptCompiler.pagePlace(spread, i, total, book)
           : beatLabelOf(spread, i, total),
         lo: bounds.lo,
         hi: bounds.hi,
@@ -1156,7 +1339,8 @@
     var prompt = [
       (SBS.Originality && SBS.Originality.creatorLock) || "",
       "",
-      "Write the RIGHT-page Japanese for several spreads of ONE original picture book.",
+      (SBS.pageLockJa && SBS.pageLockJa(book)) || "",
+      "Write Japanese body only for odd story pages excluding cover and back cover.",
       "The only story source is the wizard facts (steps 1 to 4) and this book's original plot.",
       "Do not use studio page plans, draft templates, past books, or sample stories.",
       "Continue the already-written pages. Do not restart the plot.",
@@ -1180,9 +1364,10 @@
     ].join("\n");
     return generateText(prompt).then(function (raw) {
       var blocks = parsePageBlocks(raw);
+      var mode = storyKeyMode(book, blocks);
       indices.forEach(function (i) {
         var spread = spreads[i];
-        var body = blocks[spread.n] || blocks[i + 1] || "";
+        var body = pickStoryBlock(blocks, book, spread, i, mode);
         if (body && applyAnyPage(spread, body, book)) {
           refreshImagePrompt(book, i);
         }
@@ -1221,6 +1406,7 @@
   function remainingText(spreads) {
     var n = 0;
     spreads.forEach(function (s) {
+      if (SBS.needsStoryText && !SBS.needsStoryText(s)) return;
       if (!s.geminiTextDone) n += 1;
     });
     return n;
@@ -1386,7 +1572,7 @@
     });
     var lines = [];
     ((book && book.spreads) || []).forEach(function (spread) {
-      if (!spread || spread.role === "cover") return;
+      if (!spread || spread.role === "cover" || spread.role === "back") return;
       var body = SBS.Story && SBS.Story.plainText
         ? SBS.Story.plainText(spread.paragraphs, names, { ruby: false })
         : "";
@@ -1730,11 +1916,8 @@
         progress("世界の見た目をそろえています");
         return lockWorldFromStory(book);
       }).then(function () {
-        var written = 0;
-        spreads.forEach(function (s) {
-          if (pageHasBody(s)) written += 1;
-        });
-        book.textWriteNote = written <= 1
+        var stats = storyWriteStats(book);
+        book.textWriteNote = stats.written < 1
           ? (book.lastTextRaw
             ? "文章LLMは応答しましたが、本文として取り込めませんでした。もう一度つくり直してください。"
             : textFailNote())
@@ -1821,7 +2004,8 @@
       var page = book.prompts.pages && book.prompts.pages[i];
       var pageRefs = refsForPage(book, i);
       return generateImage(page && page.image, pageRefs.length ? book.characterSheet : "", {
-        refs: pageRefs.length ? pageRefs : null
+        refs: pageRefs.length ? pageRefs : null,
+        imageConfig: pageImageConfig(spreads[i])
       }).then(function (url) {
         if (paintToken.cancel) {
           finish("interrupted");
@@ -1930,7 +2114,8 @@
       var page = book.prompts.pages && book.prompts.pages[spreadIndex];
       var refs = refsForPage(book, spreadIndex);
       return generateImage(page && page.image, refs.length ? book.characterSheet : "", {
-        refs: refs.length ? refs : null
+        refs: refs.length ? refs : null,
+        imageConfig: pageImageConfig(spread)
       }).then(function (url) {
         if (paintToken.cancel) {
           spread.leftArt = previous;
